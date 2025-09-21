@@ -146,12 +146,7 @@ This project is licensed under the MIT License, which means you can:
 - ✅ Distribute it
 - ✅ Use it privately
 
-## 🙏 Acknowledgments
 
-- Google Cloud & AI Platform
-- Firebase Team
-- React Community
-- All our beta testers
 
 ---
 
