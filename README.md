@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://gen-calrio.web.app/" target="_blank"><strong>🚀 Live Demo</strong></a>
+  <a href="[https://gen-calrio.web.app/]" target="_blank"><strong>🚀 Live Demo</strong></a>
 </p>
 
 ---
