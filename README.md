@@ -8,8 +8,10 @@
   🔍 Understand contracts like never before. Clario reads your documents, flags risks, and answers your questions — instantly.
 </p>
 
-<p align="center">
-  <a href="[https://gen-calrio.web.app/]" target="_blank"><strong>🚀 Live Demo</strong></a>
+<p align="center"><a href="https://gen-calrio.web.app/" target="_blank" rel="noopener noreferrer">
+  <strong>🚀 Live Demo</strong>
+</a>
+
 </p>
 
 ---
