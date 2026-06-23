@@ -12,6 +12,7 @@ export interface DocumentAIResult {
   text: string;
   pages: number;
   mimeType: string;
+  textGcsUri: string;
   entities: Array<{
     type: string;
     content: string;

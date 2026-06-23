@@ -20,9 +20,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { FiSend } from 'react-icons/fi';
 import { Scale } from 'lucide-react';
-import axios from 'axios';
 
 import { AnalysisResult } from '../../types';
+import { askDocumentQuestion } from '../../services/geminiService';
 
 interface DocumentChatProps {
   result: AnalysisResult;
@@ -166,57 +166,10 @@ const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
   // Gemini API call logic
   const askGeminiAPI = async (prompt: string): Promise<string> => {
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) throw new Error('Gemini API key not configured');
-      const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            topP: 0.95,
-            topK: 40,
-            maxOutputTokens: 1024,
-            responseMimeType: 'application/json',
-          }
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          timeout: 30000
-        }
-      );
-      const data = response.data;
-      let completionText = '';
-      if (Array.isArray(data.candidates) && data.candidates.length > 0) {
-        const candidate = data.candidates[0];
-        if (candidate?.content?.parts?.[0]?.text) {
-          completionText = candidate.content.parts[0].text;
-        }
-      } else if (Array.isArray(data.choices) && data.choices.length > 0) {
-        const choice = data.choices[0];
-        if (choice?.message?.content) {
-          completionText = choice.message.content;
-        }
-      } else if (typeof data.text === 'string') {
-        completionText = data.text;
-      } else if (typeof data === 'string') {
-        completionText = data;
-      }
-      if (!completionText) throw new Error('No response from Gemini');
-      let finalText = completionText;
-      try {
-        const parsed = JSON.parse(completionText);
-        if (parsed && typeof parsed.response === 'string') {
-          finalText = parsed.response;
-        }
-      } catch {}
-      return finalText;
+      return await askDocumentQuestion(prompt);
     } catch (e: any) {
-      console.error('Gemini API error:', e);
-      throw new Error(e?.message || 'Failed to get response from Gemini API');
+      console.error('AI gateway error:', e);
+      throw new Error(e?.message || 'Failed to get response from Clario AI');
     }
   };
 

@@ -134,7 +134,6 @@ const AnalysisResultPage: React.FC = () => {
         <NegotiationSuggestions 
           result={result} 
           onClose={() => setShowNegotiationSuggestions(false)}
-          documentText={result.documentText}
         />
       )}
     </div>

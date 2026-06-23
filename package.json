@@ -5,16 +5,18 @@
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
-    "dev:backend": "ts-node-dev --respawn --transpile-only server/index.ts",
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "build": "vite build",
+    "dev:functions": "firebase emulators:start --only functions",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:functions\"",
+    "build": "vite build && cp -r config dist/",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "create-admin": "tsx scripts/create-admin.js",
+    "storage:cors": "node scripts/configure-storage-cors.js"
   },
   "dependencies": {
     "@google-cloud/documentai": "^8.0.0",
     "@google-cloud/storage": "^7.7.0",
-    "@google/generative-ai": "^0.2.1",
     "@types/jsrsasign": "^10.5.15",
     "@types/uuid": "^10.0.0",
     "axios": "^1.10.0",
@@ -22,6 +24,7 @@
     "date-fns": "^4.1.0",
     "express": "^4.18.2",
     "firebase": "^11.10.0",
+    "firebase-admin": "^13.6.0",
     "google-auth-library": "^9.6.3",
     "jspdf": "^3.0.1",
     "jsrsasign": "^11.1.0",
@@ -61,6 +64,7 @@
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"

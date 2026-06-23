@@ -106,9 +106,12 @@ VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
-VITE_GEMINI_API_KEY=your_gemini_api_key
-VITE_DOCUMENT_AI_PROCESSOR_ID=your_processor_id
+CLARIO_UPLOAD_BUCKET=your_gcs_upload_bucket
+DOCUMENT_AI_PROCESSOR_ID=your_processor_id
+GEMINI_LOCATION=us-central1
 \`\`\`
+
+   **📖 Need help setting up Document AI?** See [DOCUMENT_AI_SETUP.md](./DOCUMENT_AI_SETUP.md) for detailed instructions.
 
 4. Run the development server
 \`\`\`bash
@@ -122,6 +125,27 @@ npm run dev
 3. **Review Analysis**: View the AI-generated analysis, risks, and key terms
 4. **Chat**: Use the chat interface to ask questions about your document
 5. **Dashboard**: Track and manage all your analyzed documents
+
+## 🚀 Deployment
+
+### Quick Setup
+
+1. **Set up Document AI Processor** (Required)
+   - 📖 **Complete guide**: [DOCUMENT_AI_SETUP.md](./DOCUMENT_AI_SETUP.md)
+   - Create processor in [Google Cloud Console](https://console.cloud.google.com/ai/document-ai/processors)
+   - Set `DOCUMENT_AI_PROCESSOR_ID` in Firebase Functions (Console → Functions → Configuration)
+   - Add `VITE_DOCUMENT_AI_PROCESSOR_ID` to your `.env` file
+
+2. **Deploy to Firebase (hosting + backend functions)**
+   \`\`\`bash
+   npm run deploy
+   \`\`\`
+
+### Important Notes
+
+- **Document AI**: Must be configured before deployment (see setup guide above)
+- **Environment Variables**: Set in Firebase Functions for production
+- **Service Account**: Ensure it has "Document AI API User" role
 
 ## 🔒 Security Features
 

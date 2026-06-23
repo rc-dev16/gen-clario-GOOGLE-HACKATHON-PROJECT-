@@ -3,9 +3,7 @@
  * 
  * Ensures all required environment variables are present for:
  * - Firebase configuration
- * - Gemini API integration
- * - Document AI processing
- * - Google Cloud authentication
+ * - Server-side AI and Document AI routes authenticate with Google ADC
  */
 
 const requiredEnvVars = [
@@ -15,9 +13,7 @@ const requiredEnvVars = [
   'VITE_FIREBASE_STORAGE_BUCKET',
   'VITE_FIREBASE_MESSAGING_SENDER_ID',
   'VITE_FIREBASE_APP_ID',
-  'VITE_FIREBASE_MEASUREMENT_ID',
-  'VITE_GEMINI_API_KEY',
-  'VITE_DOCUMENT_AI_PROCESSOR_ID'
+  'VITE_FIREBASE_MEASUREMENT_ID'
 ] as const;
 
 export function validateEnv(): void {

@@ -17,7 +17,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import FileUpload from './FileUpload';
-import { analyzeDocument, incrementContractsAnalyzed, getContractsAnalyzed } from '../services/analysisService';
+import { analyzeDocument, getContractsAnalyzed } from '../services/analysisService';
 import { useNavigate } from 'react-router-dom';
 import Header from './header2';
 import { 
@@ -142,8 +142,6 @@ const Analyzer: React.FC = () => {
       const existingContracts = JSON.parse(localStorage.getItem('contracts') || '[]');
       const updatedContracts = [result, ...existingContracts];
       localStorage.setItem('contracts', JSON.stringify(updatedContracts));
-      // Update contract count in Firestore
-      await incrementContractsAnalyzed(user.id);
       // Refresh contract count in UI
       const newCount = await getContractsAnalyzed(user.id);
       setContractsAnalyzed(newCount);

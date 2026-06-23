@@ -37,6 +37,29 @@ export interface ContractField {
   required?: boolean; // Whether the field is required
 }
 
+export interface AiStructuredAnalysis {
+  summary: ContractSummary;
+  fields: ContractField[];
+  documentType: string;
+  riskLevel: 'Low' | 'Medium' | 'High';
+  completionScore: number;
+  contractType?: string;
+  purpose?: string;
+  parties?: string[];
+  keyTerms?: string[];
+  importantDates?: Record<string, string>;
+  paymentTerms?: string;
+  terminationClauses?: string[];
+  concerningPoints?: string[];
+  riskFactors?: string[];
+  overallSummary?: string;
+  missingElements?: string[];
+  ambiguousTerms?: string[];
+  recommendedAdditions?: string[];
+  completionExplanation?: string;
+  requiredToComplete?: string[];
+}
+
 export interface ContractSummary {
   points: string[];
   contractType?: string;
@@ -47,46 +70,13 @@ export interface ContractSummary {
   overview?: string; // Overview from the summary
 }
 
-export interface AnalysisResult {
+export interface AnalysisResult extends AiStructuredAnalysis {
   id: string;
-  summary: ContractSummary;
-  fields: ContractField[];
-  documentType: string;
+  userId?: string;
   analysisDate: string;
   fileName: string;
   fileSize: string | number;
-  riskLevel: 'Low' | 'Medium' | 'High';
-  completionScore: number;
-  
-  // Document metadata
-  contractType?: string;
-  purpose?: string;
-  
-  // Document content
-  documentText?: string; // Raw text extracted from Document AI
-  
-  // Parties and relationships
-  parties?: string[];
-  
-  // Key information
-  keyTerms?: string[];
-  importantDates?: Record<string, string>;
-  paymentTerms?: string;
-  terminationClauses?: string[];
-  
-  // Risk and concerns
-  concerningPoints?: string[];
-  riskFactors?: string[];
-  
-  // Summaries
-  overallSummary?: string;
-  missingElements?: string[];
-  ambiguousTerms?: string[];
-  recommendedAdditions?: string[];
-  
-  // Completion details
-  completionExplanation?: string;
-  requiredToComplete?: string[];
+  gcsTextUri?: string;
 }
 
 export interface UploadedFile extends File {

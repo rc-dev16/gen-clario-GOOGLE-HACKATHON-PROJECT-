@@ -13,11 +13,14 @@ import {
   FileText
 } from 'lucide-react';
 import { AnalysisResult } from '../types';
+import {
+  askNegotiationQuestion,
+  generateNegotiationSuggestions
+} from '../services/geminiService';
 
 interface NegotiationSuggestionsProps {
   result: AnalysisResult;
   onClose: () => void;
-  documentText?: string; // Add document text from Document AI
 }
 
 interface Suggestion {
@@ -29,7 +32,7 @@ interface Suggestion {
   impact: string;
 }
 
-const NegotiationSuggestions = ({ result, onClose, documentText }: NegotiationSuggestionsProps) => {
+const NegotiationSuggestions = ({ result, onClose }: NegotiationSuggestionsProps) => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,15 +116,8 @@ const NegotiationSuggestions = ({ result, onClose, documentText }: NegotiationSu
       setLoading(true);
       setError(null);
 
-      // Create a comprehensive prompt for negotiation suggestions based on the selected party
-      // Include the actual document text from Document AI for better context
-      const documentContext = documentText ? 
-        `Document Content:\n${documentText}\n\n` : 
-        '';
-
       const prompt = `Based on this contract analysis and document content, provide specific negotiation suggestions for the ${party} side:
 
-${documentContext}
 Contract Type: ${result.documentType}
 Risk Level: ${result.riskLevel}
 Key Terms: ${result.keyTerms?.join(', ')}
@@ -145,79 +141,9 @@ Please provide 5-8 specific negotiation suggestions from the ${party}'s perspect
 
 Focus on practical, actionable suggestions that would benefit the ${party}, improve contract terms, reduce risks, or clarify ambiguous points. Consider the ${party}'s interests, rights, and potential concerns. Use the actual document content to provide more specific and relevant suggestions.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }]
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate suggestions');
-      }
-
-      const data = await response.json();
-      const responseText = data.candidates[0].content.parts[0].text;
-      
-      // Try to parse JSON from the response
-      try {
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          const newSuggestions = parsed.suggestions || [];
-          setSuggestions(newSuggestions);
-          saveToLocalStorage({ suggestions: newSuggestions });
-        } else {
-          // Fallback: create suggestions from text
-          const lines = responseText.split('\n').filter((line: string) => line.trim());
-          const fallbackSuggestions: Suggestion[] = lines.slice(0, 8).map((line: string, index: number) => ({
-            id: `suggestion-${Date.now()}-${index}`,
-            type: 'improvement',
-            title: line.split(':')[0] || `Suggestion ${index + 1}`,
-            description: line.split(':')[1] || line,
-            priority: 'medium',
-            impact: 'Will improve contract terms'
-          }));
-          setSuggestions(fallbackSuggestions);
-          saveToLocalStorage({ suggestions: fallbackSuggestions });
-        }
-      } catch (parseError) {
-        // Create fallback suggestions
-        const fallbackSuggestions: Suggestion[] = [
-          {
-            id: `suggestion-${Date.now()}-1`,
-            type: 'risk-mitigation',
-            title: 'Clarify Liability Terms',
-            description: 'The liability clause appears ambiguous. Consider adding specific limits and conditions.',
-            priority: 'high',
-            impact: 'Reduces legal exposure'
-          },
-          {
-            id: `suggestion-${Date.now()}-2`,
-            type: 'cost-optimization',
-            title: 'Review Payment Terms',
-            description: 'Payment schedule could be optimized for better cash flow management.',
-            priority: 'medium',
-            impact: 'Improves financial planning'
-          },
-          {
-            id: `suggestion-${Date.now()}-3`,
-            type: 'clarity',
-            title: 'Define Key Terms',
-            description: 'Several important terms lack clear definitions.',
-            priority: 'high',
-            impact: 'Prevents future disputes'
-          }
-        ];
-        setSuggestions(fallbackSuggestions);
-      }
+      const newSuggestions = await generateNegotiationSuggestions(prompt);
+      setSuggestions(newSuggestions);
+      saveToLocalStorage({ suggestions: newSuggestions });
     } catch (err) {
       setError('Failed to generate negotiation suggestions. Please try again.');
       console.error('Error generating suggestions:', err);
@@ -235,14 +161,8 @@ Focus on practical, actionable suggestions that would benefit the ${party}, impr
     setChatLoading(true);
 
     try {
-      // Include document text in the chat context for better responses
-      const documentContext = documentText ? 
-        `Document Content:\n${documentText}\n\n` : 
-        '';
-
       const prompt = `You are a contract negotiation expert. Based on this contract analysis and document content, provide specific advice for the ${selectedParty} side regarding this question: "${question}"
 
-${documentContext}
 Contract Context:
 - Type: ${result.documentType}
 - Risk Level: ${result.riskLevel}
@@ -252,26 +172,7 @@ Contract Context:
 
 Provide practical, actionable advice from the ${selectedParty}'s perspective. Consider their interests, rights, and potential concerns. Use the actual document content to provide more specific and relevant advice.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }]
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
-      const data = await response.json();
-      const assistantMessage = data.candidates[0].content.parts[0].text;
+      const assistantMessage = await askNegotiationQuestion(prompt);
       
       setChatHistory(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
     } catch (err) {
@@ -295,14 +196,8 @@ Provide practical, actionable advice from the ${selectedParty}'s perspective. Co
     setChatLoading(true);
 
     try {
-      // Include document text in the chat context for better responses
-      const documentContext = documentText ? 
-        `Document Content:\n${documentText}\n\n` : 
-        '';
-
       const prompt = `You are a contract negotiation expert. Based on this contract analysis and document content, provide specific advice for the ${selectedParty} side regarding this question: "${userMessage}"
 
-${documentContext}
 Contract Context:
 - Type: ${result.documentType}
 - Risk Level: ${result.riskLevel}
@@ -312,26 +207,7 @@ Contract Context:
 
 Provide practical, actionable advice from the ${selectedParty}'s perspective. Consider their interests, rights, and potential concerns. Use the actual document content to provide more specific and relevant advice.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }]
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
-      const data = await response.json();
-      const assistantMessage = data.candidates[0].content.parts[0].text;
+      const assistantMessage = await askNegotiationQuestion(prompt);
       
       setChatHistory(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
     } catch (err) {

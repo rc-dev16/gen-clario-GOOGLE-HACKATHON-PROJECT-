@@ -15,8 +15,9 @@
 
 import { analyzeDocumentWithGemini } from './geminiService';
 import { AnalysisResult } from '../types';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { app } from '../firebase-config';
+import { apiFetch } from './apiClient';
 
 const db = getFirestore(app);
 
@@ -31,18 +32,6 @@ export const getContractsAnalyzed = async (userId: string): Promise<number> => {
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
-        const userData = {
-        contractsAnalyzed: 0,
-        maxContracts: 5,
-        plan: 'free',
-        createdAt: new Date().toISOString()
-      };
-      
-      try {
-        await setDoc(userRef, userData);
-      } catch (setError) {
-        console.error('Error initializing user document:', setError);
-      }
       return 0;
     }
     
@@ -60,40 +49,46 @@ export const getContractsAnalyzed = async (userId: string): Promise<number> => {
   }
 };
 
-export const incrementContractsAnalyzed = async (userId: string): Promise<void> => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      contractsAnalyzed: increment(1)
-    });
-  } catch (error) {
-    console.error('Error incrementing contracts analyzed:', error);
-  }
-};
-
 export const analyzeDocument = async (file: File, userId: string): Promise<AnalysisResult> => {
   try {
-    const result = await analyzeDocumentWithGemini(file);
-    
-    const analysesRef = collection(db, 'analyses');
-    const analysisData = {
-      ...result,
+    console.log('[AnalysisService] analyzeDocument called:', {
       userId,
-      createdAt: new Date().toISOString(),
-      status: 'completed',
       fileName: file.name,
       fileSize: file.size
-    };
+    });
+
+    const validationError = validateFile(file);
+    if (validationError) {
+      throw validationError;
+    }
+
+    // Call Gemini - this will throw if it fails (no incomplete results)
+    const result = await analyzeDocumentWithGemini(file);
     
-    const docRef = await addDoc(analysesRef, analysisData);
-    await incrementContractsAnalyzed(userId);
+    // Validate result before saving - ensure it's not empty/incomplete
+    if (!result || !result.documentType || result.documentType === 'Document') {
+      console.warn('[AnalysisService] Result appears incomplete, checking...');
+    }
     
-    return {
-      ...result,
-      id: docRef.id
-    };
+    console.log('[AnalysisService] Gemini analysis completed successfully, persisting server-side');
+
+    const { analysis: finalResult } = await apiFetch<{ analysis: AnalysisResult }>('/api/analysis/persist', {
+      method: 'POST',
+      body: JSON.stringify({
+        analysis: {
+          ...result,
+          userId,
+          fileName: file.name,
+          fileSize: file.size
+        }
+      })
+    });
+
+    console.log('[AnalysisService] Returning final analysis result for id:', finalResult.id);
+    return finalResult;
   } catch (error) {
-    console.error('Document analysis failed:', error);
+    console.error('[AnalysisService] Document analysis failed - NOT saving incomplete results:', error);
+    // Re-throw to prevent incomplete results from being shown
     throw error;
   }
 };
@@ -123,10 +118,14 @@ export const getUserAnalyses = async (userId: string): Promise<AnalysisResult[]>
 
 export const validateFile = (file: File): Error | null => {
   const MAX_SIZE = 10 * 1024 * 1024; // 10MB
-  const ALLOWED_TYPES = ['application/pdf', 'text/plain'];
+  const ALLOWED_TYPES = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain'
+  ];
 
   if (!ALLOWED_TYPES.includes(file.type)) {
-    return new Error('Invalid file type. Please upload a PDF or TXT file. Word document support coming soon.');
+    return new Error('Invalid file type. Please upload a PDF, DOCX, or TXT file.');
   }
 
   if (file.size > MAX_SIZE) {
