@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
   },

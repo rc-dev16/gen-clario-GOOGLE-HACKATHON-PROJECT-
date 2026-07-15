@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import DocumentAIService from '../services/documentAIService';
+import DocumentAIService from '@/features/analyze/api/documentAiApi';
 
 const DocumentAITest: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);

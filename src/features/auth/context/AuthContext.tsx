@@ -13,7 +13,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '../types';
+import { User } from '@/lib/types';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -24,7 +24,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { auth } from '../firebase-config';
+import { auth } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;

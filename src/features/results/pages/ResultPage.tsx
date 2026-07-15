@@ -1,46 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { AnalysisResult } from '@/lib/types';
 import { AnalysisResults } from '@/features/results/components/ResultDetails';
 import DocumentChat from '@/features/results/components/DocumentChat';
 import NegotiationSuggestions from '@/features/results/components/NegotiationSuggestions';
-
-const db = getFirestore();
+import { useAnalysis } from '@/features/results/hooks/useAnalysis';
 
 const ResultPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: result, isLoading: loading, error: queryError } = useAnalysis(id);
   const [isVisible, setIsVisible] = useState(false);
-  const [showChat, setShowChat] = useState(false); // Move chat modal state here
+  const [showChat, setShowChat] = useState(false);
   const [showNegotiationSuggestions, setShowNegotiationSuggestions] = useState(false);
+
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : 'Failed to load analysis result.'
+    : null;
 
   useEffect(() => {
     setIsVisible(true);
-    setLoading(true);
-    setError(null);
-    const fetchContract = async () => {
-      try {
-        const docRef = doc(db, 'analyses', id!);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          setResult(docSnap.data() as AnalysisResult);
-        } else {
-          setError('Analysis result not found.');
-        }
-      } catch (e) {
-        console.error('Error fetching contract:', e);
-        setError('Failed to load analysis result.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchContract();
-  }, [id]);
+  }, []);
 
   useEffect(() => {
     if (showChat) {
@@ -48,7 +28,6 @@ const ResultPage: React.FC = () => {
     } else {
       document.body.classList.remove('overflow-hidden');
     }
-    // Listen for sidebar close event
     const closeHandler = () => setShowChat(false);
     window.addEventListener('close-chat-modal', closeHandler);
     return () => {
@@ -59,8 +38,6 @@ const ResultPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-hidden relative">
-      
-      {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gray-900/5 rounded-full blur-3xl animate-float"></div>
         <div className="absolute top-3/4 right-1/4 w-80 h-80 bg-gray-800/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
@@ -77,7 +54,7 @@ const ResultPage: React.FC = () => {
               </div>
             </div>
           )}
-          
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-8 rounded-2xl text-center">
               <div className="flex items-center justify-center gap-3 mb-4">
@@ -89,30 +66,28 @@ const ResultPage: React.FC = () => {
               <p className="text-red-600 font-medium">{error}</p>
             </div>
           )}
-          
+
           {result && (
             <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden mt-8">
-              <AnalysisResults 
-                result={result} 
-                setShowChat={setShowChat} 
+              <AnalysisResults
+                result={result}
+                setShowChat={setShowChat}
                 setShowNegotiationSuggestions={setShowNegotiationSuggestions}
               />
             </div>
           )}
         </div>
       </main>
-      {/* Chat Modal rendered at top level so overlay covers full page */}
+
       {showChat && result && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-0 transition-opacity duration-300" onClick={() => setShowChat(false)} />
           <div className="relative z-10 w-full max-w-7xl h-[90vh] flex flex-row items-stretch justify-center">
-            {/* Chat Modal Content */}
             <div className="bg-white/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-gray-200 flex flex-1 flex-col w-full h-full animate-fade-in-glass overflow-hidden">
               <div className="flex-1 flex flex-col">
                 <DocumentChat result={result} />
               </div>
             </div>
-            {/* Close Button Section: top right, outside modal, floating, no background */}
             <div className="absolute -right-6 -top-6 z-20">
               <button onClick={() => setShowChat(false)} className="text-2xl text-gray-400 hover:text-gray-900 font-bold rounded-full p-2 focus:outline-none" title="Close chat">&times;</button>
             </div>
@@ -127,10 +102,9 @@ const ResultPage: React.FC = () => {
         </div>
       )}
 
-      {/* Negotiation Suggestions Modal */}
       {showNegotiationSuggestions && result && (
-        <NegotiationSuggestions 
-          result={result} 
+        <NegotiationSuggestions
+          result={result}
           onClose={() => setShowNegotiationSuggestions(false)}
         />
       )}
@@ -138,4 +112,4 @@ const ResultPage: React.FC = () => {
   );
 };
 
-export default ResultPage; 
+export default ResultPage;

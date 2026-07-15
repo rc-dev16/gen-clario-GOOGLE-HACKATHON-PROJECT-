@@ -21,8 +21,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { FiSend } from 'react-icons/fi';
 import { Scale } from 'lucide-react';
 
-import { AnalysisResult } from '../../types';
-import { askDocumentQuestion } from '../../services/geminiService';
+import { AnalysisResult } from '@/lib/types';
+import { askDocumentQuestion } from '@/features/analyze/api/geminiApi';
 
 interface DocumentChatProps {
   result: AnalysisResult;

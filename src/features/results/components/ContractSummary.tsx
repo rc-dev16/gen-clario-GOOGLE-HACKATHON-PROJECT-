@@ -1,6 +1,6 @@
 import React from 'react';
-import { FileText, Calendar, Users, DollarSign, AlertTriangle, CheckCircle, TrendingUp, Sparkles, Lightbulb } from 'lucide-react';
-import { ContractSummary as SummaryType } from '../types';
+import { FileText, Calendar, Users, DollarSign, AlertTriangle, CheckCircle, Sparkles, Lightbulb } from 'lucide-react';
+import { ContractSummary as SummaryType, ContractField } from '@/lib/types';
 
 interface ContractSummaryProps {
   summary: SummaryType;
@@ -13,14 +13,14 @@ interface ContractSummaryProps {
   keyTerms?: string[];
   terminationClauses?: string[];
   concerningPoints?: string[];
-  fields?: import('../types').ContractField[];
+  fields?: ContractField[];
   setShowNegotiationSuggestions?: (open: boolean) => void;
 }
 
 const ContractSummary: React.FC<ContractSummaryProps> = ({
   summary,
   documentType,
-  riskLevel,
+  riskLevel: _riskLevel,
   parties,
   importantDates,
   paymentTerms,
@@ -30,24 +30,6 @@ const ContractSummary: React.FC<ContractSummaryProps> = ({
   concerningPoints,
   setShowNegotiationSuggestions
 }) => {
-  const getRiskIcon = (risk: string) => {
-    switch (risk) {
-      case 'High': return AlertTriangle;
-      case 'Medium': return TrendingUp;
-      case 'Low': return CheckCircle;
-      default: return CheckCircle;
-    }
-  };
-
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case 'High': return 'text-red-600 bg-red-100';
-      case 'Medium': return 'text-amber-600 bg-amber-100';
-      case 'Low': return 'text-emerald-600 bg-emerald-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
   const getDocumentTypeColor = (documentType: string) => {
     const type = (documentType || '').toLowerCase();
     switch (type) {
@@ -81,8 +63,6 @@ const ContractSummary: React.FC<ContractSummaryProps> = ({
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
-
-  const RiskIcon = getRiskIcon(riskLevel);
 
   return (
     <div className="space-y-8">

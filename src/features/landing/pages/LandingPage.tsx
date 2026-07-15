@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Scale, CheckCircle, Star, ArrowRight, Shield, Zap, Users, Sparkles, Globe, Lock, TrendingUp } from 'lucide-react';
-import Header from './header2';
+import { Scale, CheckCircle, Star, ArrowRight, Shield, Zap, Users, Sparkles } from 'lucide-react';
+import Header from '@/shared/components/AppHeader';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/features/auth/context/AuthContext';
 
 // Typing Animation Hook
 const useTypingAnimation = (text: string, speed: number = 100, startDelay: number = 0) => {

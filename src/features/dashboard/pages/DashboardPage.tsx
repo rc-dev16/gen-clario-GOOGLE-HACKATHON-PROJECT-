@@ -35,55 +35,28 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { format } from 'date-fns';
 import { AnalysisResult } from '@/lib/types';
 import { useNavigate } from 'react-router-dom';
-import { getContractsAnalyzed, getUserAnalyses } from '@/features/analyze/api/analysisApi';
-import { getFirestore, doc, deleteDoc } from 'firebase/firestore';
-
-const db = getFirestore();
+import { useUserAnalyses } from '@/features/dashboard/hooks/useUserAnalyses';
+import { useContractsAnalyzed } from '@/features/dashboard/hooks/useContractsAnalyzed';
+import { useDeleteAnalysis } from '@/features/dashboard/hooks/useDeleteAnalysis';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const [contracts, setContracts] = useState<AnalysisResult[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'high-risk' | 'medium-risk' | 'low-risk'>('all');
   const [isVisible, setIsVisible] = useState(false);
   const navigate = useNavigate();
-  const [contractsAnalyzed, setContractsAnalyzed] = useState<number>(0);
+  const { data: analyses = [] } = useUserAnalyses(user?.id);
+  const { data: contractsAnalyzed = 0 } = useContractsAnalyzed(user?.id);
+  const deleteMutation = useDeleteAnalysis(user?.id);
+
+  const contracts =
+    user?.maxContracts === 5 ? analyses.slice(0, 5) : analyses;
 
   useEffect(() => {
-    if (!user) {
-      return;
+    if (user) {
+      setIsVisible(true);
     }
-
-    setIsVisible(true);
-    
-    // Fetch user's analyses and contracts count from Firestore
-    const fetchData = async () => {
-      try {
-        // Fetch analyses
-        const analyses = await getUserAnalyses(user.id);
-        // Sort analyses by date (newest first)
-        const sortedAnalyses = analyses.sort((a, b) => 
-          new Date(b.analysisDate).getTime() - new Date(a.analysisDate).getTime()
-        );
-        
-        // Limit to maxContracts for free plan
-        const limitedAnalyses = user.maxContracts === 5 
-          ? sortedAnalyses.slice(0, 5) 
-          : sortedAnalyses;
-          
-        setContracts(limitedAnalyses);
-        
-        // Fetch contracts count
-        const count = await getContractsAnalyzed(user.id);
-        setContractsAnalyzed(count);
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        setContracts([]);
-      }
-    };
-    
-    fetchData();
-  }, [user]); // Re-run when user changes
+  }, [user]);
 
   // Use contractsAnalyzed from Firestore for docsLeft
   const docsLeft = user ? Math.max(0, user.maxContracts - contractsAnalyzed) : 0;
@@ -116,14 +89,7 @@ const Dashboard: React.FC = () => {
   const handleDeleteContract = async (contractId: string) => {
     if (window.confirm('Are you sure you want to delete this contract analysis?')) {
       try {
-        // Remove from Firestore
-        const analysisRef = doc(db, 'analyses', contractId);
-        await deleteDoc(analysisRef);
-        
-        // Update local state
-        const updatedContracts = contracts.filter((c: AnalysisResult) => c.id !== contractId);
-        setContracts(updatedContracts);
-        
+        await deleteMutation.mutateAsync(contractId);
       } catch (error) {
         console.error('Error deleting contract:', error);
         alert('Failed to delete contract. Please try again.');

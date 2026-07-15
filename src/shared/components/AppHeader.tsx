@@ -1,21 +1,12 @@
 import { Scale, User, LogOut, LayoutDashboard, Sparkles } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { getContractsAnalyzed } from '../services/analysisService';
+import { useContractsAnalyzed } from '@/features/dashboard/hooks/useContractsAnalyzed';
 
 // Profile Modal Component
 const ProfileModal = ({ user, onClose }: { user: any, onClose: () => void }) => {
-  const [contractsAnalyzed, setContractsAnalyzed] = React.useState<number>(user.contractsAnalyzed || 0);
-  React.useEffect(() => {
-    const fetchCount = async () => {
-      if (user) {
-        const count = await getContractsAnalyzed(user.id);
-        setContractsAnalyzed(count);
-      }
-    };
-    fetchCount();
-  }, [user]);
+  const { data: contractsAnalyzed = 0 } = useContractsAnalyzed(user?.id);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center min-h-screen bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-sm p-0 relative animate-scale-in">

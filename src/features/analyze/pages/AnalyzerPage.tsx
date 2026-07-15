@@ -17,8 +17,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import FileUpload from '@/features/analyze/components/FileUpload';
-import { analyzeDocument, getContractsAnalyzed } from '@/features/analyze/api/analysisApi';
 import { useNavigate } from 'react-router-dom';
+import { useContractsAnalyzed } from '@/features/dashboard/hooks/useContractsAnalyzed';
+import { useAnalyzeDocument } from '@/features/analyze/hooks/useAnalyzeDocument';
 import { 
   Zap, 
   Shield, 
@@ -79,11 +80,11 @@ const useContinuousTyping = (text: string, speed: number = 80, pauseDuration: nu
 const AnalyzerPage: React.FC = () => {
   const { user } = useAuth();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const navigate = useNavigate();
-  const [contractsAnalyzed, setContractsAnalyzed] = useState<number>(0);
+  const { data: contractsAnalyzed = 0 } = useContractsAnalyzed(user?.id);
+  const analyzeMutation = useAnalyzeDocument(user?.id);
 
   // Continuous typing animation for the main heading
   const headingAnimation = useContinuousTyping("Upload Your Legal Contract", 80, 2000);
@@ -92,72 +93,33 @@ const AnalyzerPage: React.FC = () => {
     setIsVisible(true);
   }, []);
 
-  // Fetch contractsAnalyzed from Firestore on mount and when user changes
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    const fetchCount = async () => {
-      // Clear localStorage when a new user logs in
-      localStorage.removeItem('contracts');
-      try {
-        const count = await getContractsAnalyzed(user.id);
-        setContractsAnalyzed(count);
-        
-        // Update the user's maxContracts in context if needed
-        if (user.maxContracts !== 5) {
-          user.maxContracts = 5;
-        }
-      } catch (error) {
-        console.error('Error fetching contract count:', error);
-        setContractsAnalyzed(0);
-      }
-    };
-    fetchCount();
-  }, [user]);
-
   const handleFileUpload = async (file: File) => {
     if (!user) return;
 
-    // ENFORCE FREE PLAN LIMIT BASED ON FIRESTORE CONTRACT COUNT
-    if (user.plan === 'free') {
-      const count = await getContractsAnalyzed(user.id);
-      if (count >= user.maxContracts) {
-        setError('You have reached the maximum number of uploads for the free plan.');
-        return;
-      }
+    if (user.plan === 'free' && contractsAnalyzed >= user.maxContracts) {
+      setError('You have reached the maximum number of uploads for the free plan.');
+      return;
     }
 
     setUploadedFile(file);
-    setIsAnalyzing(true);
     setError(null);
 
     try {
-      const result = await analyzeDocument(file, user.id);
-      // Save to localStorage and update user stats
-      const existingContracts = JSON.parse(localStorage.getItem('contracts') || '[]');
-      const updatedContracts = [result, ...existingContracts];
-      localStorage.setItem('contracts', JSON.stringify(updatedContracts));
-      // Refresh contract count in UI
-      const newCount = await getContractsAnalyzed(user.id);
-      setContractsAnalyzed(newCount);
-      // Redirect to result page
+      const result = await analyzeMutation.mutateAsync(file);
       navigate(`/results/${result.id}`);
-    } catch (error) {
-      console.error('Analysis failed:', error);
+    } catch (err) {
+      console.error('Analysis failed:', err);
       setError('Analysis failed. Please try again or contact support.');
-    } finally {
-      setIsAnalyzing(false);
+      setUploadedFile(null);
     }
   };
 
   const handleRemoveFile = () => {
     setUploadedFile(null);
-    setIsAnalyzing(false);
     setError(null);
   };
 
+  const isAnalyzing = analyzeMutation.isPending;
   const remainingAnalyses = user ? Math.max(0, user.maxContracts - contractsAnalyzed) : 0;
 
   const features = [

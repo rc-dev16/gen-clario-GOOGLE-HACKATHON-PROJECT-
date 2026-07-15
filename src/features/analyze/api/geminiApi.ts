@@ -1,6 +1,6 @@
-import DocumentAIService from './documentAIService';
-import { AnalysisResult } from '../types';
-import { apiFetch } from './apiClient';
+import DocumentAIService from './documentAiApi';
+import { AnalysisResult } from '@/lib/types';
+import { apiFetch } from '@/lib/apiClient';
 
 const documentAIService = new DocumentAIService();
 const MAX_SIZE = 10 * 1024 * 1024;

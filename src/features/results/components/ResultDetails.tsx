@@ -6,12 +6,10 @@ import {
   Download,
   AlertTriangle,
   Sparkles,
-  ArrowLeft,
-  Lightbulb
+  ArrowLeft
 } from 'lucide-react';
-import { AnalysisResult } from '../../types';
-import ContractSummary from '../ContractSummary';
-import DocumentChat from './DocumentChat';
+import { AnalysisResult } from '@/lib/types';
+import ContractSummary from '@/features/results/components/ContractSummary';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -77,40 +75,6 @@ const getRiskColor = (riskLevel: string) => {
     case 'Medium': return 'from-amber-500 to-orange-500';
     case 'Low': return 'from-emerald-500 to-green-500';
     default: return 'from-gray-500 to-gray-600';
-  }
-};
-
-const getDocumentTypeColor = (documentType: string) => {
-  const type = (documentType || '').toLowerCase();
-  switch (type) {
-    case 'nda':
-    case 'non-disclosure agreement':
-    case 'confidentiality agreement':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'employment agreement':
-    case 'employment':
-    case 'employment contract':
-      return 'bg-green-100 text-green-800 border-green-200';
-    case 'student agreement':
-    case 'student':
-    case 'student contract':
-    case 'occupancy arrangement':
-      return 'bg-purple-100 text-purple-800 border-purple-200';
-    case 'lease agreement':
-    case 'rental agreement':
-    case 'lease':
-      return 'bg-orange-100 text-orange-800 border-orange-200';
-    case 'service agreement':
-    case 'service contract':
-      return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-    case 'partnership agreement':
-    case 'partnership':
-      return 'bg-teal-100 text-teal-800 border-teal-200';
-    case 'sales agreement':
-    case 'purchase agreement':
-      return 'bg-red-100 text-red-800 border-red-200';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
   }
 };
 
@@ -253,8 +217,6 @@ export const AnalysisResults = ({
   };
 
   const completionPercentage = Math.round((result.completionScore || 0) * 100);
-  const scoreColor = completionPercentage >= 80 ? 'text-emerald-600' : 
-    completionPercentage >= 60 ? 'text-amber-600' : 'text-red-600';
 
   const analysisDate = result.analysisDate ? formatDate(result.analysisDate) : 'N/A';
   const fileSize = result.fileSize ? formatFileSize(typeof result.fileSize === 'string' ? parseInt(result.fileSize) : (result.fileSize as number)) : 'N/A';

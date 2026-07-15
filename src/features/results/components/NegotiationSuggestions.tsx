@@ -12,11 +12,11 @@ import {
   Users,
   FileText
 } from 'lucide-react';
-import { AnalysisResult } from '../types';
+import { AnalysisResult } from '@/lib/types';
 import {
   askNegotiationQuestion,
   generateNegotiationSuggestions
-} from '../services/geminiService';
+} from '@/features/analyze/api/geminiApi';
 
 interface NegotiationSuggestionsProps {
   result: AnalysisResult;

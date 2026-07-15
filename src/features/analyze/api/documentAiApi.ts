@@ -1,8 +1,8 @@
 import {
   DocumentAIResult,
   DocumentProcessingError
-} from '../types/documentai';
-import { apiFetch, ApiClientError } from './apiClient';
+} from '@/lib/types/documentai';
+import { apiFetch, ApiClientError } from '@/lib/apiClient';
 
 class DocumentAIService {
   public async analyzeDocument(file: File): Promise<DocumentAIResult> {
