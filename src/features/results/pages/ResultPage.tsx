@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { AnalysisResult } from '../../types';
-import { AnalysisResults } from './ResultDetails';
-import DocumentChat from './DocumentChat';
-import NegotiationSuggestions from '../NegotiationSuggestions';
-import Header2 from '../header2';
+import { AnalysisResult } from '@/lib/types';
+import { AnalysisResults } from '@/features/results/components/ResultDetails';
+import DocumentChat from '@/features/results/components/DocumentChat';
+import NegotiationSuggestions from '@/features/results/components/NegotiationSuggestions';
 
 const db = getFirestore();
 
-const AnalysisResultPage: React.FC = () => {
+const ResultPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +59,6 @@ const AnalysisResultPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-hidden relative">
-      <Header2 />
       
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -69,7 +67,7 @@ const AnalysisResultPage: React.FC = () => {
         <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gray-700/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
       </div>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
         <div className={`transition-all duration-1000 ${isVisible ? 'animate-slide-up' : 'opacity-0'}`}>
           {loading && (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -140,4 +138,4 @@ const AnalysisResultPage: React.FC = () => {
   );
 };
 
-export default AnalysisResultPage; 
+export default ResultPage; 

@@ -31,12 +31,11 @@ import {
   ArrowRight,
   Calendar
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { format } from 'date-fns';
-import { AnalysisResult } from '../types';
-import Header from './header2';
+import { AnalysisResult } from '@/lib/types';
 import { useNavigate } from 'react-router-dom';
-import { getContractsAnalyzed, getUserAnalyses } from '../services/analysisService';
+import { getContractsAnalyzed, getUserAnalyses } from '@/features/analyze/api/analysisApi';
 import { getFirestore, doc, deleteDoc } from 'firebase/firestore';
 
 const db = getFirestore();
@@ -51,9 +50,7 @@ const Dashboard: React.FC = () => {
   const [contractsAnalyzed, setContractsAnalyzed] = useState<number>(0);
 
   useEffect(() => {
-    // Redirect to home if not logged in
     if (!user) {
-      navigate('/');
       return;
     }
 
@@ -144,8 +141,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-50 overflow-hidden">
-      <Header />
+    <div className="bg-gray-50 overflow-hidden min-h-screen">
       
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -154,7 +150,7 @@ const Dashboard: React.FC = () => {
         <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gray-700/3 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
       </div>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-6">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-6">
         {/* Welcome Section */}
         <div className={`mb-8 transition-all duration-1000 ${isVisible ? 'animate-slide-up' : 'opacity-0'}`}>
           <div className="text-center mb-6">

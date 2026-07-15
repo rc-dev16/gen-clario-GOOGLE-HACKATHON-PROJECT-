@@ -15,11 +15,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import FileUpload from './FileUpload';
-import { analyzeDocument, getContractsAnalyzed } from '../services/analysisService';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import FileUpload from '@/features/analyze/components/FileUpload';
+import { analyzeDocument, getContractsAnalyzed } from '@/features/analyze/api/analysisApi';
 import { useNavigate } from 'react-router-dom';
-import Header from './header2';
 import { 
   Zap, 
   Shield, 
@@ -77,7 +76,7 @@ const useContinuousTyping = (text: string, speed: number = 80, pauseDuration: nu
   return { displayText, isTyping };
 };
 
-const Analyzer: React.FC = () => {
+const AnalyzerPage: React.FC = () => {
   const { user } = useAuth();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -95,9 +94,7 @@ const Analyzer: React.FC = () => {
 
   // Fetch contractsAnalyzed from Firestore on mount and when user changes
   useEffect(() => {
-    // Redirect to home if not logged in
     if (!user) {
-      navigate('/');
       return;
     }
 
@@ -194,7 +191,6 @@ const Analyzer: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-hidden">
-      <Header />
 
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -204,7 +200,7 @@ const Analyzer: React.FC = () => {
       </div>
 
       {/* Hero Section */}
-      <section className="relative pt-16 pb-6 px-2 sm:px-4 lg:px-8">
+      <section className="relative pt-28 pb-6 px-2 sm:px-4 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center relative z-10">
             {/* Badge */}
@@ -335,4 +331,4 @@ const Analyzer: React.FC = () => {
   );
 };
 
-export default Analyzer;
+export default AnalyzerPage;

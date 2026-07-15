@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, Scale, Sparkles } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getSafeNextPath } from '@/shared/routing/getSafeNextPath';
 
 interface AuthPageProps {
   initialMode?: 'login' | 'register';
 }
 
-const AuthModal: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
-  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
+  const [searchParams] = useSearchParams();
+  const modeFromQuery = searchParams.get('mode') === 'register' ? 'register' : 'login';
+  const [mode, setMode] = useState<'login' | 'register'>(
+    initialMode === 'register' || modeFromQuery === 'register' ? 'register' : 'login'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -23,24 +28,27 @@ const AuthModal: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
   const [forgotError, setForgotError] = useState('');
   const [isVisible, setIsVisible] = useState(false);
 
+  const modeParam = searchParams.get('mode');
+  const nextParam = searchParams.get('next');
+
   useEffect(() => {
     setIsVisible(true);
   }, []);
 
   useEffect(() => {
     if (user) {
-      navigate('/analyzer');
+      navigate(getSafeNextPath(nextParam, '/dashboard'), { replace: true });
     }
-  }, [user]);
+  }, [user, navigate, nextParam]);
 
   useEffect(() => {
-    setMode(initialMode);
+    setMode(modeParam === 'register' || initialMode === 'register' ? 'register' : 'login');
     setError('');
     setEmail('');
     setPassword('');
     setName('');
     setShowPassword(false);
-  }, [initialMode]);
+  }, [initialMode, modeParam]);
 
   const validateEmail = (email: string) => {
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -280,8 +288,20 @@ const AuthModal: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
               setGoogleError('');
               try {
                 await googleSignIn();
+                // If we get here, popup succeeded
               } catch (err: any) {
-                setGoogleError(err?.message || 'Google sign-in failed.');
+                const errorMessage = err?.message || 'Google sign-in failed.';
+                setGoogleError(errorMessage);
+                
+                // If user completed sign-in in another tab, check auth state after a delay
+                if (errorMessage.includes('another tab') || errorMessage.includes('refresh')) {
+                  setTimeout(() => {
+                    // Check if user is now signed in (auth state change from other tab)
+                    if (user) {
+                      setGoogleError('');
+                    }
+                  }, 3000);
+                }
               }
             }}
             disabled={loading}
@@ -363,4 +383,4 @@ const AuthModal: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
   );
 };
 
-export default AuthModal;
+export default AuthPage;
