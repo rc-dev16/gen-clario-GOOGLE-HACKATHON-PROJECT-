@@ -9,7 +9,7 @@
  * - File removal capability
  * 
  * Supported Formats:
- * - PDF, TXT (DOC/DOCX coming soon)
+ * - PDF, DOCX, TXT
  * - Maximum size: 10MB
  * 
  * Security:
@@ -19,7 +19,14 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { Upload, FileText, X, CheckCircle } from 'lucide-react';
+import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
+import {
+  DOCUMENT_FILE_ACCEPT,
+  DOCUMENT_FILE_SUPPORT_LABEL,
+  formatFileSize,
+  MAX_DOCUMENT_FILE_BYTES,
+  validateDocumentFile
+} from '@/lib/validation/file';
 
 export interface UploadedFile {
   name: string;
@@ -42,10 +49,18 @@ const FileUpload: React.FC<FileUploadProps> = ({
   isAnalyzing 
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = useCallback((file: File) => {
+    const error = validateDocumentFile(file);
+    if (error) {
+      setValidationError(error.message);
+      return;
+    }
+
+    setValidationError(null);
     onFileUpload(file);
-  };
+  }, [onFileUpload]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -55,7 +70,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (files.length > 0) {
       handleFileSelect(files[0]);
     }
-  }, []);
+  }, [handleFileSelect]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -72,6 +87,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (files && files.length > 0) {
       handleFileSelect(files[0]);
     }
+    e.target.value = '';
   };
 
   if (uploadedFile) {
@@ -84,7 +100,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">{uploadedFile.name}</h3>
-              <p className="text-gray-600">{uploadedFile.size} • {uploadedFile.type}</p>
+              <p className="text-gray-600">
+                {formatFileSize(uploadedFile.size)} • {uploadedFile.type || 'Unknown type'}
+              </p>
             </div>
           </div>
           {!isAnalyzing && (
@@ -133,7 +151,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               Upload Legal Document
             </h3>
             <p className="text-gray-600 mb-4">
-              Drag and drop your PDF or TXT file here, or click to browse
+              Drag and drop your {DOCUMENT_FILE_SUPPORT_LABEL} file here, or click to browse
             </p>
             <label className="inline-flex items-center space-x-2 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white px-6 py-3 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-semibold">
               <FileText className="h-4 w-4" />
@@ -141,17 +159,20 @@ const FileUpload: React.FC<FileUploadProps> = ({
               <input
                 type="file"
                 className="hidden"
-                accept=".pdf,.txt"
+                accept={DOCUMENT_FILE_ACCEPT}
                 onChange={handleFileInput}
               />
             </label>
           </div>
+          {validationError && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>{validationError}</span>
+            </div>
+          )}
           <div className="space-y-1">
             <p className="text-xs text-gray-500">
-              Currently supported formats: PDF, TXT (Max 10MB)
-            </p>
-            <p className="text-xs text-blue-500 font-medium">
-              DOC/DOCX support coming soon
+              Currently supported formats: {DOCUMENT_FILE_SUPPORT_LABEL} (Max {formatFileSize(MAX_DOCUMENT_FILE_BYTES)})
             </p>
           </div>
         </div>

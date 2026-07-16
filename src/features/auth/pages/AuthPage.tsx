@@ -3,6 +3,11 @@ import { Mail, Lock, User, Eye, EyeOff, Scale, Sparkles } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSafeNextPath } from '@/shared/routing/getSafeNextPath';
+import {
+  validateDisplayName,
+  validateEmail,
+  validatePassword
+} from '@/lib/validation/auth';
 
 interface AuthPageProps {
   initialMode?: 'login' | 'register';
@@ -50,22 +55,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
     setShowPassword(false);
   }, [initialMode, modeParam]);
 
-  const validateEmail = (email: string) => {
-    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return re.test(email);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!validateEmail(email)) {
-      setError('Please enter a valid email address.');
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -73,8 +75,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
       if (mode === 'login') {
         await login(email, password);
       } else {
-        if (!name.trim()) {
-          setError('Please enter your name.');
+        const nameError = validateDisplayName(name);
+        if (nameError) {
+          setError(nameError);
           return;
         }
         await register(email, password, name);
@@ -233,6 +236,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
                     onClick={async () => {
                       setForgotMessage('');
                       setForgotError('');
+                      const emailError = validateEmail(forgotEmail);
+                      if (emailError) {
+                        setForgotError(emailError);
+                        return;
+                      }
+
                       try {
                         await forgotPassword(forgotEmail);
                         setForgotMessage('Password reset email sent!');

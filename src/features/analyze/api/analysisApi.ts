@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
 import { apiFetch } from '@/lib/apiClient';
+import { validateDocumentFile } from '@/lib/validation/file';
 
 const db = getFirestore(app);
 
@@ -42,7 +43,7 @@ export const getContractsAnalyzed = async (userId: string): Promise<number> => {
 };
 
 export const analyzeDocument = async (file: File, userId: string): Promise<AnalysisResult> => {
-  const validationError = validateFile(file);
+  const validationError = validateDocumentFile(file);
   if (validationError) {
     throw validationError;
   }
@@ -99,21 +100,4 @@ export const deleteAnalysis = async (analysisId: string): Promise<void> => {
   await deleteDoc(doc(db, 'analyses', analysisId));
 };
 
-export const validateFile = (file: File): Error | null => {
-  const MAX_SIZE = 10 * 1024 * 1024;
-  const ALLOWED_TYPES = [
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain'
-  ];
-
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return new Error('Invalid file type. Please upload a PDF, DOCX, or TXT file.');
-  }
-
-  if (file.size > MAX_SIZE) {
-    return new Error('File too large. Maximum size is 10MB.');
-  }
-
-  return null;
-};
+export { validateDocumentFile as validateFile };

@@ -1,14 +1,9 @@
 import DocumentAIService from './documentAiApi';
 import { AnalysisResult } from '@/lib/types';
 import { apiFetch } from '@/lib/apiClient';
+import { validateDocumentFile } from '@/lib/validation/file';
 
 const documentAIService = new DocumentAIService();
-const MAX_SIZE = 10 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/plain'
-];
 
 export interface NegotiationSuggestion {
   id: string;
@@ -19,17 +14,7 @@ export interface NegotiationSuggestion {
   impact: string;
 }
 
-export const validateFile = (file: File): Error | null => {
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return new Error('Invalid file type. Please upload a PDF, DOCX, or TXT file.');
-  }
-
-  if (file.size > MAX_SIZE) {
-    return new Error('File too large. Maximum size is 10MB.');
-  }
-
-  return null;
-};
+export const validateFile = validateDocumentFile;
 
 export const extractFileContent = async (file: File): Promise<string> => {
   try {
@@ -41,7 +26,7 @@ export const extractFileContent = async (file: File): Promise<string> => {
 };
 
 export const analyzeDocumentWithGemini = async (file: File): Promise<AnalysisResult> => {
-  const validationError = validateFile(file);
+  const validationError = validateDocumentFile(file);
   if (validationError) {
     throw validationError;
   }
