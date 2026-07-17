@@ -1,13 +1,3 @@
-import { protos } from '@google-cloud/documentai';
-
-export type ProcessedDocument = protos.google.cloud.documentai.v1.IDocument;
-
-export interface DocumentAIConfig {
-  projectId: string;
-  location: string;  // Format: 'us' or 'eu'
-  processorId: string;
-}
-
 export interface DocumentAIResult {
   text: string;
   pages: number;
@@ -33,4 +23,3 @@ export interface DocumentProcessingError {
   message: string;
   details?: unknown;
 }
-
