@@ -7,7 +7,7 @@
     "dev:frontend": "vite",
     "dev:functions": "firebase emulators:start --only functions",
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:functions\"",
-    "build": "vite build && cp -r config dist/",
+    "build": "vite build",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "lint": "eslint .",
     "preview": "vite preview",

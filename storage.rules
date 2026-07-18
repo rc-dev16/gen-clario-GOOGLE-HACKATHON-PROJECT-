@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Uploads and extracted texts use signed URLs from the BFF.
+// Deny all direct client Storage access.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
