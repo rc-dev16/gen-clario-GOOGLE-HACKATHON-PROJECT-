@@ -2,6 +2,7 @@ import type { Request } from 'express';
 import { HttpError } from '../http/errors.js';
 import { assertJsonObject, requireString } from '../http/request.js';
 import { persistAnalysis } from '../services/analysesRepo.js';
+import { shouldSkipQuota } from '../services/usersRepo.js';
 import type { AnalysisPayload, AuthenticatedRequestContext } from '../types.js';
 
 export async function handleAnalysisPersist(
@@ -16,7 +17,9 @@ export async function handleAnalysisPersist(
   const analysis = assertJsonObject(body.analysis);
   requireString(analysis, 'gcsTextUri');
 
-  const persistedAnalysis = await persistAnalysis(user.uid, analysis);
+  const persistedAnalysis = await persistAnalysis(user.uid, analysis, {
+    skipQuota: shouldSkipQuota(user.token)
+  });
 
   return {
     analysis: persistedAnalysis

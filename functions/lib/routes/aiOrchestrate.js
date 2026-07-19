@@ -5,6 +5,7 @@ import { buildAnalysisPrompt } from '../prompts/analysis.js';
 import { analysisResponseSchema, chatResponseSchema, suggestionResponseSchema } from '../prompts/schemas.js';
 import { generateGeminiJson } from '../services/gemini.js';
 import { readUserTextObject } from '../services/gcs.js';
+import { assertWithinQuota } from '../services/usersRepo.js';
 export async function handleAiOrchestrate(req, user) {
     if (req.method !== 'POST') {
         throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Use POST for this endpoint.');
@@ -12,6 +13,7 @@ export async function handleAiOrchestrate(req, user) {
     const body = assertJsonObject(req.body);
     const operation = requireString(body, 'operation');
     if (operation === 'analyze') {
+        await assertWithinQuota(user.uid, user.token);
         const textGcsUri = requireString(body, 'textGcsUri');
         const fileName = requireString(body, 'fileName');
         const fileSize = body.fileSize;

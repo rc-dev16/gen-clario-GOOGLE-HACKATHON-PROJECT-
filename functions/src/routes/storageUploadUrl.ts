@@ -9,6 +9,7 @@ import {
 import { HttpError } from '../http/errors.js';
 import { getRequestUrl } from '../http/request.js';
 import { getStorage, sanitizeFilename } from '../services/gcs.js';
+import { assertWithinQuota } from '../services/usersRepo.js';
 import type { AuthenticatedRequestContext, UploadUrlResponse } from '../types.js';
 
 export async function handleUploadUrl(
@@ -18,6 +19,8 @@ export async function handleUploadUrl(
   if (req.method !== 'GET') {
     throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Use GET for this endpoint.');
   }
+
+  await assertWithinQuota(user.uid, user.token);
 
   const url = getRequestUrl(req);
   const filename = url.searchParams.get('filename') || undefined;

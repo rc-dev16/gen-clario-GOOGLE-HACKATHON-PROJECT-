@@ -1,5 +1,5 @@
 /**
- * Analysis API — Firestore reads/writes and analyze pipeline entrypoints.
+ * Analysis API — Firestore reads (owner-scoped) and BFF mutations.
  */
 
 import { analyzeDocumentWithGemini } from './geminiApi';
@@ -11,35 +11,54 @@ import {
   collection,
   query,
   where,
-  getDocs,
-  deleteDoc
+  getDocs
 } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
-import { apiFetch } from '@/lib/apiClient';
+import { apiFetch, ApiClientError } from '@/lib/apiClient';
 import { validateDocumentFile } from '@/lib/validation/file';
 
 const db = getFirestore(app);
 
-export const getContractsAnalyzed = async (userId: string): Promise<number> => {
+export interface UserQuota {
+  contractsAnalyzed: number;
+  maxContracts: number;
+  plan: string;
+}
+
+const DEFAULT_QUOTA: UserQuota = {
+  contractsAnalyzed: 0,
+  maxContracts: 5,
+  plan: 'free'
+};
+
+export const getUserQuota = async (userId: string): Promise<UserQuota> => {
   try {
     if (!userId) {
-      console.warn('No userId provided to getContractsAnalyzed');
-      return 0;
+      return DEFAULT_QUOTA;
     }
 
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
+    const userDoc = await getDoc(doc(db, 'users', userId));
 
     if (!userDoc.exists()) {
-      return 0;
+      return DEFAULT_QUOTA;
     }
 
     const data = userDoc.data();
-    return data?.contractsAnalyzed || 0;
+    return {
+      contractsAnalyzed:
+        typeof data?.contractsAnalyzed === 'number' ? data.contractsAnalyzed : 0,
+      maxContracts: typeof data?.maxContracts === 'number' ? data.maxContracts : 5,
+      plan: typeof data?.plan === 'string' ? data.plan : 'free'
+    };
   } catch (error) {
-    console.error('Error getting contracts analyzed:', error);
-    return 0;
+    console.error('Error getting user quota:', error);
+    return DEFAULT_QUOTA;
   }
+};
+
+export const getContractsAnalyzed = async (userId: string): Promise<number> => {
+  const quota = await getUserQuota(userId);
+  return quota.contractsAnalyzed;
 };
 
 export const analyzeDocument = async (file: File, userId: string): Promise<AnalysisResult> => {
@@ -96,8 +115,28 @@ export const getAnalysisById = async (id: string): Promise<AnalysisResult | null
   return { ...snap.data(), id: snap.id } as AnalysisResult;
 };
 
-export const deleteAnalysis = async (analysisId: string): Promise<void> => {
-  await deleteDoc(doc(db, 'analyses', analysisId));
+export const deleteAnalysis = async (
+  analysisId: string
+): Promise<{ deleted: true; contractsAnalyzed: number }> => {
+  return apiFetch<{ deleted: true; contractsAnalyzed: number }>(
+    `/api/analysis/${encodeURIComponent(analysisId)}`,
+    { method: 'DELETE' }
+  );
 };
+
+export function getAnalysisErrorMessage(error: unknown): string {
+  if (error instanceof ApiClientError) {
+    if (error.code === 'QUOTA_EXCEEDED') {
+      return error.message;
+    }
+    return error.message || 'Request failed. Please try again.';
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return 'Analysis failed. Please try again or contact support.';
+}
 
 export { validateDocumentFile as validateFile };

@@ -13,6 +13,9 @@ export function useDeleteAnalysis(userId: string | undefined) {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.users.contractsAnalyzed(userId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.users.quota(userId),
+      });
       queryClient.removeQueries({ queryKey: queryKeys.analyses.detail(analysisId) });
     },
   });

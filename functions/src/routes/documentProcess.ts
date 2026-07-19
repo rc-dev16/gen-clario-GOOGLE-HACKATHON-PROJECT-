@@ -3,6 +3,7 @@ import { ALLOWED_UPLOAD_MIME_TYPES } from '../config.js';
 import { HttpError } from '../http/errors.js';
 import { assertJsonObject, requireString } from '../http/request.js';
 import { processDocumentFromGcs } from '../services/documentAi.js';
+import { assertWithinQuota } from '../services/usersRepo.js';
 import type { AuthenticatedRequestContext, DocumentAIResult } from '../types.js';
 
 export async function handleDocumentProcess(
@@ -12,6 +13,8 @@ export async function handleDocumentProcess(
   if (req.method !== 'POST') {
     throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Use POST for this endpoint.');
   }
+
+  await assertWithinQuota(user.uid, user.token);
 
   const body = assertJsonObject(req.body);
   const gcsUri = requireString(body, 'gcsUri');

@@ -10,6 +10,7 @@ import {
 } from '../prompts/schemas.js';
 import { generateGeminiJson } from '../services/gemini.js';
 import { readUserTextObject } from '../services/gcs.js';
+import { assertWithinQuota } from '../services/usersRepo.js';
 import type { AiOperation, AuthenticatedRequestContext } from '../types.js';
 
 export async function handleAiOrchestrate(
@@ -24,6 +25,8 @@ export async function handleAiOrchestrate(
   const operation = requireString(body, 'operation') as AiOperation;
 
   if (operation === 'analyze') {
+    await assertWithinQuota(user.uid, user.token);
+
     const textGcsUri = requireString(body, 'textGcsUri');
     const fileName = requireString(body, 'fileName');
     const fileSize = body.fileSize;

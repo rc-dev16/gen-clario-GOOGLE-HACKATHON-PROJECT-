@@ -3,10 +3,12 @@ import { ALLOWED_UPLOAD_MIME_TYPES, MAX_UPLOAD_BYTES, SIGNED_URL_TTL_MS, require
 import { HttpError } from '../http/errors.js';
 import { getRequestUrl } from '../http/request.js';
 import { getStorage, sanitizeFilename } from '../services/gcs.js';
+import { assertWithinQuota } from '../services/usersRepo.js';
 export async function handleUploadUrl(req, user) {
     if (req.method !== 'GET') {
         throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'Use GET for this endpoint.');
     }
+    await assertWithinQuota(user.uid, user.token);
     const url = getRequestUrl(req);
     const filename = url.searchParams.get('filename') || undefined;
     const contentType = url.searchParams.get('contentType') || undefined;

@@ -7,5 +7,6 @@ export const queryKeys = {
   users: {
     contractsAnalyzed: (userId: string) =>
       ['users', 'contractsAnalyzed', userId] as const,
+    quota: (userId: string) => ['users', 'quota', userId] as const,
   },
 };

@@ -18,6 +18,9 @@ export function useAnalyzeDocument(userId: string | undefined) {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.users.contractsAnalyzed(userId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.users.quota(userId),
+      });
       queryClient.setQueryData(queryKeys.analyses.detail(result.id), result);
     },
   });

@@ -10,6 +10,7 @@ import { handleUploadUrl } from '../routes/storageUploadUrl.js';
 import { handleDocumentProcess } from '../routes/documentProcess.js';
 import { handleAiOrchestrate } from '../routes/aiOrchestrate.js';
 import { handleAnalysisPersist } from '../routes/analysisPersist.js';
+import { handleAnalysisDelete } from '../routes/analysisDelete.js';
 
 export const api = onRequest({ region: 'us-central1', cors: true }, async (req: Request, res: Response) => {
   writeSecurityHeaders(res);
@@ -24,6 +25,7 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req: 
     await enforceRateLimit(user.uid);
 
     const apiPath = getApiPath(req);
+    const analysisDeleteMatch = apiPath.match(/^\/analysis\/([^/]+)$/);
 
     if (apiPath === '/storage/upload-url') {
       res.status(200).json(await handleUploadUrl(req, user));
@@ -42,6 +44,11 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req: 
 
     if (apiPath === '/analysis/persist') {
       res.status(200).json(await handleAnalysisPersist(req, user));
+      return;
+    }
+
+    if (analysisDeleteMatch && analysisDeleteMatch[1] !== 'persist') {
+      res.status(200).json(await handleAnalysisDelete(req, user, analysisDeleteMatch[1]));
       return;
     }
 

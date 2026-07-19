@@ -1,11 +1,18 @@
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { HttpError } from '../http/errors.js';
 import type { AnalysisPayload } from '../types.js';
 import { assertUserOwnedGcsUri } from './gcs.js';
+import {
+  DEFAULT_MAX_CONTRACTS,
+  DEFAULT_PLAN,
+  assertQuotaFromSnapshot
+} from './usersRepo.js';
 
 export async function persistAnalysis(
   uid: string,
-  analysis: Record<string, unknown>
+  analysis: Record<string, unknown>,
+  options: { skipQuota?: boolean } = {}
 ): Promise<AnalysisPayload> {
   const gcsTextUri = analysis.gcsTextUri;
 
@@ -34,6 +41,11 @@ export async function persistAnalysis(
 
   await firestore.runTransaction(async (transaction) => {
     const userSnapshot = await transaction.get(userRef);
+    assertQuotaFromSnapshot(
+      userSnapshot.data() as Record<string, unknown> | undefined,
+      { skipQuota: options.skipQuota }
+    );
+
     transaction.create(analysisRef, persistedAnalysis);
 
     if (userSnapshot.exists) {
@@ -47,8 +59,8 @@ export async function persistAnalysis(
 
     transaction.set(userRef, {
       contractsAnalyzed: 1,
-      maxContracts: 5,
-      plan: 'free',
+      maxContracts: DEFAULT_MAX_CONTRACTS,
+      plan: DEFAULT_PLAN,
       createdAt: now,
       lastAnalysis: analysisRef.id,
       updatedAt: now
@@ -56,4 +68,60 @@ export async function persistAnalysis(
   });
 
   return persistedAnalysis;
+}
+
+export async function deleteAnalysisForUser(
+  uid: string,
+  analysisId: string
+): Promise<{ deleted: true; contractsAnalyzed: number }> {
+  if (!analysisId.trim()) {
+    throw new HttpError(400, 'INVALID_REQUEST', 'analysisId is required.');
+  }
+
+  const firestore = getFirestore();
+  const analysisRef = firestore.collection('analyses').doc(analysisId);
+  const userRef = firestore.collection('users').doc(uid);
+  const now = new Date().toISOString();
+
+  const contractsAnalyzed = await firestore.runTransaction(async (transaction) => {
+    const analysisSnapshot = await transaction.get(analysisRef);
+    const userSnapshot = await transaction.get(userRef);
+
+    if (!analysisSnapshot.exists) {
+      throw new HttpError(404, 'NOT_FOUND', 'Analysis not found.');
+    }
+
+    const analysis = analysisSnapshot.data();
+
+    if (analysis?.userId !== uid) {
+      throw new HttpError(403, 'FORBIDDEN', 'You do not have access to this analysis.');
+    }
+
+    transaction.delete(analysisRef);
+
+    if (!userSnapshot.exists) {
+      return 0;
+    }
+
+    const current = typeof userSnapshot.data()?.contractsAnalyzed === 'number'
+      ? userSnapshot.data()!.contractsAnalyzed
+      : 0;
+    const next = Math.max(0, current - 1);
+
+    transaction.update(userRef, {
+      contractsAnalyzed: next,
+      updatedAt: now
+    });
+
+    return next;
+  });
+
+  return {
+    deleted: true,
+    contractsAnalyzed
+  };
+}
+
+export function shouldSkipQuota(token?: DecodedIdToken): boolean {
+  return token?.admin === true;
 }

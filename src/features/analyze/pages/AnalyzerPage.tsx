@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { useContractsAnalyzed } from '@/features/dashboard/hooks/useContractsAnalyzed';
+import { useUserQuota } from '@/features/dashboard/hooks/useUserQuota';
 import { useAnalyzeDocument } from '@/features/analyze/hooks/useAnalyzeDocument';
+import { getAnalysisErrorMessage } from '@/features/analyze/api/analysisApi';
 import { AnalyzerView } from '@/features/analyze/components/AnalyzerView';
 
 const AnalyzerPage: React.FC = () => {
@@ -10,16 +11,18 @@ const AnalyzerPage: React.FC = () => {
   const navigate = useNavigate();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { data: contractsAnalyzed = 0 } = useContractsAnalyzed(user?.id);
+  const { data: quota } = useUserQuota(user?.id);
   const analyzeMutation = useAnalyzeDocument(user?.id);
 
-  const remainingAnalyses = user ? Math.max(0, user.maxContracts - contractsAnalyzed) : 0;
+  const contractsAnalyzed = quota?.contractsAnalyzed ?? 0;
+  const maxContracts = quota?.maxContracts ?? user?.maxContracts ?? 5;
+  const remainingAnalyses = Math.max(0, maxContracts - contractsAnalyzed);
 
   const handleFileUpload = async (file: File) => {
     if (!user) return;
 
-    if (user.plan === 'free' && contractsAnalyzed >= user.maxContracts) {
-      setError('You have reached the maximum number of uploads for the free plan.');
+    if (contractsAnalyzed >= maxContracts) {
+      setError('You have reached the maximum number of analyses for your plan.');
       return;
     }
 
@@ -31,7 +34,7 @@ const AnalyzerPage: React.FC = () => {
       navigate(`/results/${result.id}`);
     } catch (err) {
       console.error('Analysis failed:', err);
-      setError('Analysis failed. Please try again or contact support.');
+      setError(getAnalysisErrorMessage(err));
       setUploadedFile(null);
     }
   };
@@ -40,7 +43,7 @@ const AnalyzerPage: React.FC = () => {
     <AnalyzerView
       userPlan={user?.plan}
       remainingAnalyses={remainingAnalyses}
-      maxContracts={user?.maxContracts ?? 0}
+      maxContracts={maxContracts}
       uploadedFile={uploadedFile}
       isAnalyzing={analyzeMutation.isPending}
       error={error}
