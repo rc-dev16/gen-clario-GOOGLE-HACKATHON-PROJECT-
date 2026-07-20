@@ -51,39 +51,3 @@ export const analyzeDocumentWithGemini = async (file: File): Promise<AnalysisRes
     throw error;
   }
 };
-
-export const askDocumentQuestion = async (prompt: string): Promise<string> => {
-  const response = await apiFetch<{ response: string }>('/api/ai/orchestrate', {
-    method: 'POST',
-    body: JSON.stringify({
-      operation: 'chat',
-      prompt
-    })
-  });
-
-  return response.response;
-};
-
-export const generateNegotiationSuggestions = async (prompt: string): Promise<NegotiationSuggestion[]> => {
-  const response = await apiFetch<{ suggestions: NegotiationSuggestion[] }>('/api/ai/orchestrate', {
-    method: 'POST',
-    body: JSON.stringify({
-      operation: 'negotiationSuggestions',
-      prompt
-    })
-  });
-
-  return response.suggestions;
-};
-
-export const askNegotiationQuestion = async (prompt: string): Promise<string> => {
-  const response = await apiFetch<{ response: string }>('/api/ai/orchestrate', {
-    method: 'POST',
-    body: JSON.stringify({
-      operation: 'negotiationAdvice',
-      prompt
-    })
-  });
-
-  return response.response;
-};

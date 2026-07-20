@@ -2,6 +2,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { HttpError } from '../http/errors.js';
 import { assertUserOwnedGcsUri } from './gcs.js';
 import { DEFAULT_MAX_CONTRACTS, DEFAULT_PLAN, assertQuotaFromSnapshot } from './usersRepo.js';
+import { deleteAnalysisSideData } from './chatsRepo.js';
 export async function persistAnalysis(uid, analysis, options = {}) {
     const gcsTextUri = analysis.gcsTextUri;
     if (typeof gcsTextUri !== 'string' || !gcsTextUri.trim()) {
@@ -76,11 +77,9 @@ export async function deleteAnalysisForUser(uid, analysisId) {
         });
         return next;
     });
+    await deleteAnalysisSideData(analysisId);
     return {
         deleted: true,
         contractsAnalyzed
     };
-}
-export function shouldSkipQuota(token) {
-    return token?.admin === true;
 }

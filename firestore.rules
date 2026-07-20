@@ -2,11 +2,23 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Analyses are created/updated/deleted only via Admin SDK (Cloud Functions BFF).
+    // Analyses and chat/negotiation side data are written only via Admin SDK (BFF).
     match /analyses/{analysisId} {
       allow read: if request.auth != null
         && resource.data.userId == request.auth.uid;
       allow create, update, delete: if false;
+
+      match /chats/{chatId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/analyses/$(analysisId)).data.userId == request.auth.uid;
+        allow write: if false;
+      }
+
+      match /negotiationState/{docId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/analyses/$(analysisId)).data.userId == request.auth.uid;
+        allow write: if false;
+      }
     }
 
     match /users/{userId} {
@@ -14,7 +26,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Job queue and other Admin-only collections stay denied to clients.
     match /{document=**} {
       allow read, write: if false;
     }

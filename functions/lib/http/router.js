@@ -10,6 +10,7 @@ import { handleDocumentProcess } from '../routes/documentProcess.js';
 import { handleAiOrchestrate } from '../routes/aiOrchestrate.js';
 import { handleAnalysisPersist } from '../routes/analysisPersist.js';
 import { handleAnalysisDelete } from '../routes/analysisDelete.js';
+import { handleAnalysisChatPost, handleAnalysisChatSessionsGet, handleAnalysisChatsGet, handleNegotiationChatPost, handleNegotiationStateGet, handleNegotiationSuggestionsPost } from '../routes/analysisChat.js';
 export const api = onRequest({ region: 'us-central1', cors: true }, async (req, res) => {
     writeSecurityHeaders(res);
     if (req.method === 'OPTIONS') {
@@ -20,6 +21,12 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
         const user = await authenticate(req);
         await enforceRateLimit(user.uid);
         const apiPath = getApiPath(req);
+        const analysisChatMatch = apiPath.match(/^\/analysis\/([^/]+)\/chat$/);
+        const analysisChatsMatch = apiPath.match(/^\/analysis\/([^/]+)\/chats$/);
+        const analysisChatSessionsMatch = apiPath.match(/^\/analysis\/([^/]+)\/chat-sessions$/);
+        const negotiationSuggestionsMatch = apiPath.match(/^\/analysis\/([^/]+)\/negotiation\/suggestions$/);
+        const negotiationChatMatch = apiPath.match(/^\/analysis\/([^/]+)\/negotiation\/chat$/);
+        const negotiationStateMatch = apiPath.match(/^\/analysis\/([^/]+)\/negotiation$/);
         const analysisDeleteMatch = apiPath.match(/^\/analysis\/([^/]+)$/);
         if (apiPath === '/storage/upload-url') {
             res.status(200).json(await handleUploadUrl(req, user));
@@ -35,6 +42,30 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
         }
         if (apiPath === '/analysis/persist') {
             res.status(200).json(await handleAnalysisPersist(req, user));
+            return;
+        }
+        if (analysisChatMatch) {
+            res.status(200).json(await handleAnalysisChatPost(req, user, analysisChatMatch[1]));
+            return;
+        }
+        if (analysisChatsMatch) {
+            res.status(200).json(await handleAnalysisChatsGet(req, user, analysisChatsMatch[1]));
+            return;
+        }
+        if (analysisChatSessionsMatch) {
+            res.status(200).json(await handleAnalysisChatSessionsGet(req, user, analysisChatSessionsMatch[1]));
+            return;
+        }
+        if (negotiationSuggestionsMatch) {
+            res.status(200).json(await handleNegotiationSuggestionsPost(req, user, negotiationSuggestionsMatch[1]));
+            return;
+        }
+        if (negotiationChatMatch) {
+            res.status(200).json(await handleNegotiationChatPost(req, user, negotiationChatMatch[1]));
+            return;
+        }
+        if (negotiationStateMatch) {
+            res.status(200).json(await handleNegotiationStateGet(req, user, negotiationStateMatch[1]));
             return;
         }
         if (analysisDeleteMatch && analysisDeleteMatch[1] !== 'persist') {

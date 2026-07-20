@@ -184,6 +184,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       keys.forEach(key => {
         if (key.startsWith('chat-history-') || 
             key.startsWith('chat-name-') || 
+            key.startsWith('negotiation-') ||
             key === 'contracts' ||
             key.startsWith('analysis-')) {
           localStorage.removeItem(key);

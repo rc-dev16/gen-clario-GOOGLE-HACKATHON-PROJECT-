@@ -1,28 +1,22 @@
 /**
- * Document Chat Component
- * 
- * Interactive chat interface for document analysis that provides:
- * - Real-time AI responses using Gemini API
- * - Context-aware document analysis
- * - Chat history management
- * - Session persistence
- * - Multi-session support
- * 
- * Features:
- * - Maintains chat history per document
- * - Handles multiple chat sessions
- * - Provides document context to AI
- * - Formats AI responses for readability
- * - Auto-scrolling chat interface
+ * Document Chat — server-backed sessions by analysisId (no client prompts / localStorage).
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { FiSend } from 'react-icons/fi';
 import { Scale } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AnalysisResult } from '@/lib/types';
-import { askDocumentQuestion } from '@/features/analyze/api/geminiApi';
+import {
+  listChatMessages,
+  listChatSessions,
+  sendDocumentChatMessage,
+  type ServerChatMessage
+} from '@/features/results/api/chatApi';
+import { queryKeys } from '@/lib/queryKeys';
+import { ApiClientError } from '@/lib/apiClient';
 
 interface DocumentChatProps {
   result: AnalysisResult;
@@ -34,61 +28,74 @@ interface ChatMessage {
   timestamp: number;
 }
 
-interface ChatSession {
-  key: string;
-  sessionId: string;
-  lastTime: number;
-  preview: string;
-}
+const WELCOME: ChatMessage = {
+  sender: 'ai',
+  text: "Hi! I'm your contract assistant. Ask me anything about this document, such as payment terms, parties, risks, or any specific clause.",
+  timestamp: Date.now()
+};
 
 function formatGeminiResponse(text: string): string {
-  // Remove code block markers
   if (text.startsWith('```')) {
     text = text.replace(/^```[a-z]*\n?/, '').replace(/```$/, '');
   }
-  // Try to parse JSON and pretty print as plain text
   try {
     const obj = JSON.parse(text);
-      if (Array.isArray(obj) && obj.length > 0) {
-        // If array of objects, extract all string values from all keys
-        return obj.map((item: Record<string, unknown>) => {
-        if (typeof item === 'object' && item !== null) {
-          // If only one key, just show the value
-          const keys = Object.keys(item);
-          if (keys.length === 1) {
-            return item[keys[0]];
+    if (Array.isArray(obj) && obj.length > 0) {
+      return obj
+        .map((item: Record<string, unknown>) => {
+          if (typeof item === 'object' && item !== null) {
+            const keys = Object.keys(item);
+            if (keys.length === 1) {
+              return String(item[keys[0]]);
+            }
+            return Object.entries(item)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join('\n');
           }
-          // Otherwise, show all key-value pairs
-          return Object.entries(item)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join('\n');
-        }
-        return typeof item === 'string' ? item : JSON.stringify(item);
-      }).join('\n\n');
+          return typeof item === 'string' ? item : JSON.stringify(item);
+        })
+        .join('\n\n');
     }
     if (typeof obj === 'object' && obj !== null) {
       const keys = Object.keys(obj);
       if (keys.length === 1) {
-        return obj[keys[0]];
+        return String(obj[keys[0]]);
       }
       return Object.entries(obj)
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
     }
   } catch {
-    // Not JSON, return as-is
+    // not JSON
   }
-  // Replace any line starting with one or more asterisks (optionally with spaces) with a bullet
   text = text.replace(/^\*+\s*/gm, '• ');
-  // Remove any remaining asterisks used for bold/emphasis
   text = text.replace(/\*+/g, '');
   return text;
 }
 
-const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
-  const docId = result.id;
+function toUiMessages(messages: ServerChatMessage[]): ChatMessage[] {
+  if (messages.length === 0) {
+    return [{ ...WELCOME, timestamp: Date.now() }];
+  }
+  return messages.map((message) => ({
+    sender: message.role === 'user' ? 'user' : 'ai',
+    text: message.content,
+    timestamp: message.timestamp
+  }));
+}
 
-  // Prevent background scroll when dialog is open
+const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
+  const analysisId = result.id;
+  const queryClient = useQueryClient();
+  const [sessionId, setSessionId] = useState(() => uuidv4());
+  const [messages, setMessages] = useState<ChatMessage[]>([{ ...WELCOME }]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const bootstrapped = useRef(false);
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -96,105 +103,64 @@ const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
     };
   }, []);
 
-  // --- Chat Session Management ---
-  const getSessionKeys = () => {
-    return Object.keys(localStorage)
-      .filter(k => k.startsWith(`chat-history-${docId}-`));
-  };
-  const getSessions = (): ChatSession[] => {
-    return getSessionKeys()
-      .map((k: string) => {
-        const messages = JSON.parse(localStorage.getItem(k) || '[]') as ChatMessage[];
-        const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
-        
-        // Format the preview text
-        let preview = 'No messages';
-        if (lastMsg) {
-          // Get the first user message as preview
-          const firstUserMsg = messages.find((m: ChatMessage) => m.sender === 'user');
-          if (firstUserMsg) {
-            preview = firstUserMsg.text
-              .replace(/[{}\[\]"]/g, '') // Remove JSON syntax
-              .trim()
-              .slice(0, 40);             // Limit length
-          } else {
-            preview = 'New chat session';
-          }
-        }
-        
-        return {
-          key: k,
-          sessionId: k.replace(`chat-history-${docId}-`, ''),
-          lastTime: lastMsg ? lastMsg.timestamp : 0,
-          preview: preview + (preview.length >= 40 ? '...' : ''),
-        };
-      })
-      .sort((a, b) => b.lastTime - a.lastTime);
-  };
-  const [sessionId, setSessionId] = useState(() => {
-    const sessions = getSessions();
-    if (sessions.length > 0) return sessions[0].sessionId;
-    return uuidv4();
+  const sessionsQuery = useQuery({
+    queryKey: queryKeys.chat.sessions(analysisId, 'document'),
+    queryFn: () => listChatSessions(analysisId, 'document')
   });
-  const getStorageKey = (sid = sessionId) => `chat-history-${docId}-${sid}`;
 
-  const normalizeMessages = (msgs: any[]): ChatMessage[] =>
-    msgs.map(m => ({ ...m, sender: m.sender === 'user' ? 'user' : 'ai' }));
-  const getInitialMessages = () => {
-    const saved = localStorage.getItem(getStorageKey());
-    if (saved) {
-      try {
-        return normalizeMessages(JSON.parse(saved));
-      } catch {}
-    }
-    return [{
-      sender: 'ai' as const,
-      text: "Hi! I'm your contract assistant. Ask me anything about this document, such as payment terms, parties, risks, or any specific clause.",
-      timestamp: Date.now(),
-    }];
-  };
-  const [messages, setMessages] = useState<ChatMessage[]>(getInitialMessages());
   useEffect(() => {
-    setMessages(getInitialMessages());
-  }, [sessionId]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [typing, setTyping] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Gemini API call logic
-  const askGeminiAPI = async (prompt: string): Promise<string> => {
-    try {
-      return await askDocumentQuestion(prompt);
-    } catch (e: any) {
-      console.error('AI gateway error:', e);
-      throw new Error(e?.message || 'Failed to get response from Clario AI');
+    if (bootstrapped.current || !sessionsQuery.data) {
+      return;
     }
-  };
+    bootstrapped.current = true;
+    if (sessionsQuery.data.length > 0) {
+      setSessionId(sessionsQuery.data[0].sessionId);
+    }
+  }, [sessionsQuery.data]);
 
-  // Use Gemini for AI response
+  const messagesQuery = useQuery({
+    queryKey: queryKeys.chat.messages(analysisId, sessionId, 'document'),
+    queryFn: () => listChatMessages(analysisId, sessionId, 'document'),
+    enabled: Boolean(sessionId)
+  });
+
+  useEffect(() => {
+    if (messagesQuery.data) {
+      setMessages(toUiMessages(messagesQuery.data));
+    }
+  }, [messagesQuery.data, sessionId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, typing]);
+
   const sendMessage = async (question: string) => {
     setLoading(true);
     setError(null);
-    setMessages((prev) => {
-      const updated = [...prev, { sender: 'user' as const, text: question, timestamp: Date.now() }];
-      localStorage.setItem(getStorageKey(), JSON.stringify(updated));
-      return updated;
-    });
+    setMessages((prev) => [...prev, { sender: 'user', text: question, timestamp: Date.now() }]);
     setTyping(true);
+
     try {
-      const prompt = `You are Clario, a friendly and expert contract assistant. Use the contract context below to answer the user's question.\n\n- If the question is about the contract, answer in detail using the context.\n- If the question is not about the contract, respond conversationally and offer to help with contract questions.\n- If the question is a greeting, greet the user and offer to help.\n- If the question is unclear, politely ask for clarification.\n- Always be concise, helpful, and approachable.\n- If the user's question contains typos, misspellings, or grammatical errors, do your best to understand and answer correctly.\n- Always answer in plain English, never in JSON, code, or structured data format.\n- If your answer contains a list or multiple items, use bullet points whenever possible.\n\nContract Context:\nDocument: ${result.fileName}\nType: ${result.contractType || result.documentType}\nSummary: ${result.overallSummary || ''}\nKey Terms: ${(result.keyTerms || []).join(', ')}\nPayment Terms: ${result.paymentTerms || ''}\nImportant Dates: ${JSON.stringify(result.importantDates || {})}\n\nUser: ${question}`;
-      const aiResponse = await askGeminiAPI(prompt);
+      const resultPayload = await sendDocumentChatMessage(analysisId, question, sessionId);
+      if (resultPayload.sessionId !== sessionId) {
+        setSessionId(resultPayload.sessionId);
+      }
       setTyping(false);
-      setMessages((prev) => {
-        const updated = [...prev, { sender: 'ai' as const, text: aiResponse, timestamp: Date.now() }];
-        localStorage.setItem(getStorageKey(), JSON.stringify(updated));
-        return updated;
+      setMessages((prev) => [
+        ...prev,
+        { sender: 'ai', text: resultPayload.response, timestamp: Date.now() }
+      ]);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.sessions(analysisId, 'document')
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.chat.messages(analysisId, resultPayload.sessionId, 'document')
       });
     } catch (e) {
       setTyping(false);
-      setError('Failed to get response from Gemini.');
+      setError(
+        e instanceof ApiClientError ? e.message : 'Failed to get response from Clario AI.'
+      );
     } finally {
       setLoading(false);
     }
@@ -203,47 +169,27 @@ const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
-    await sendMessage(input.trim());
+    const question = input.trim();
     setInput('');
-  };
-
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, typing]);
-
-  const formatTime = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    await sendMessage(question);
   };
 
   const handleNewChat = () => {
     const newId = uuidv4();
-    const now = new Date();
-    const sessionName = `Chat Session`;
-    
-    // Save session name
-    localStorage.setItem(`chat-name-${docId}-${newId}`, sessionName);
-    
     setSessionId(newId);
-    setMessages([{
-      sender: 'ai',
-      text: "Hi! I'm your contract assistant. Ask me anything about this document, such as payment terms, parties, risks, or any specific clause.",
-      timestamp: now.getTime(),
-    }]);
+    setMessages([{ ...WELCOME, timestamp: Date.now() }]);
+    setError(null);
   };
-  
-  const getSessionName = (sid: string) => {
-    return localStorage.getItem(`chat-name-${docId}-${sid}`) || 'Chat Session';
-  };
+
+  const formatTime = (ts: number) =>
+    new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const sessions = sessionsQuery.data || [];
 
   return (
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center  z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-full flex overflow-hidden">
-        {/* Sidebar */}
         <div className="w-56 bg-gray-50 border-r border-gray-200 flex flex-col h-full">
-          {/* Header */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -264,41 +210,53 @@ const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
               New Chat
             </button>
           </div>
-          {/* Chat History */}
           <div className="flex-1 min-h-0 overflow-y-scroll custom-scrollbar p-4">
             <h2 className="text-xs font-medium text-gray-600 mb-3">Chat History</h2>
-            {getSessions().length === 0 ? (
+            {sessions.length === 0 ? (
               <p className="text-xs text-gray-400 text-center py-6">No previous chats</p>
             ) : (
               <div className="space-y-2">
-                {getSessions().map((s) => (
+                {sessions.map((s) => (
                   <button
                     key={s.sessionId}
                     onClick={() => setSessionId(s.sessionId)}
                     className={`w-full text-left p-2 rounded-lg transition-colors mb-1 border border-transparent text-xs ${s.sessionId === sessionId ? 'bg-gray-900 text-white font-bold border-gray-900' : 'bg-white text-gray-800 hover:bg-gray-100'}`}
                   >
-                    <div className="font-medium mb-1">{getSessionName(s.sessionId)}</div>
+                    <div className="font-medium mb-1">{s.name || 'Chat Session'}</div>
                     <div className="truncate text-[10px] opacity-75">{s.preview}</div>
-                    <div className="text-[10px] text-gray-400 mt-1">{s.lastTime ? new Date(s.lastTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                    <div className="text-[10px] text-gray-400 mt-1">
+                      {s.lastTime
+                        ? new Date(s.lastTime).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : ''}
+                    </div>
                   </button>
                 ))}
               </div>
             )}
           </div>
         </div>
-        {/* Main Chat Area */}
         <div className="flex-1 flex flex-col h-full">
-          {/* Messages */}
           <div className="flex-1 min-h-0 overflow-y-scroll p-4 custom-scrollbar">
             <div className="space-y-4">
-              {messages.length === 0 && (
-                <div className="text-gray-400 text-xs text-center mt-10">Ask any question about this document...</div>
-              )}
               {messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}> 
-                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 ${msg.sender === 'user' ? 'bg-black text-white' : 'bg-gray-100 text-gray-900'} text-sm`}> 
-                    <span className="text-xs leading-relaxed whitespace-pre-line break-words block">{msg.sender === 'ai' ? formatGeminiResponse(msg.text) : msg.text}</span>
-                    <span className={`text-[10px] mt-2 block text-right ${msg.sender === 'user' ? 'text-gray-300' : 'text-gray-500'}`}>{formatTime(msg.timestamp)}</span>
+                <div
+                  key={idx}
+                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-3 py-2 ${msg.sender === 'user' ? 'bg-black text-white' : 'bg-gray-100 text-gray-900'} text-sm`}
+                  >
+                    <span className="text-xs leading-relaxed whitespace-pre-line break-words block">
+                      {msg.sender === 'ai' ? formatGeminiResponse(msg.text) : msg.text}
+                    </span>
+                    <span
+                      className={`text-[10px] mt-2 block text-right ${msg.sender === 'user' ? 'text-gray-300' : 'text-gray-500'}`}
+                    >
+                      {formatTime(msg.timestamp)}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -312,26 +270,15 @@ const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
               <div ref={chatEndRef} />
             </div>
           </div>
-          {/* Error */}
           {error && <div className="text-red-500 text-xs px-6 pt-2 pb-1">{error}</div>}
-          {/* Input Area */}
           <div className="border-t border-gray-200 p-3">
             <form onSubmit={handleSend} className="flex gap-2">
               <input
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                onChange={(e) => setInput(e.target.value)}
                 placeholder="Type your question..."
                 className="flex-1 rounded-full border border-gray-300 focus:border-black focus:ring-black py-2 px-3 text-xs outline-none transition-all"
                 disabled={loading}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (input.trim() && !loading) {
-                      (e.target as HTMLInputElement).blur();
-                      (e.target as HTMLInputElement).form?.requestSubmit();
-                    }
-                  }
-                }}
               />
               <button
                 type="submit"
@@ -345,13 +292,10 @@ const DocumentChat: React.FC<DocumentChatProps> = ({ result }) => {
           </div>
         </div>
       </div>
-      {/* Custom Scrollbar & Animations */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 8px; }
         .custom-scrollbar { scrollbar-width: thin; scrollbar-color: #e5e7eb #f9fafb; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
       `}</style>
     </div>
   );

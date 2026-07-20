@@ -1,5 +1,4 @@
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
-import type { DecodedIdToken } from 'firebase-admin/auth';
 import { HttpError } from '../http/errors.js';
 import type { AnalysisPayload } from '../types.js';
 import { assertUserOwnedGcsUri } from './gcs.js';
@@ -8,6 +7,7 @@ import {
   DEFAULT_PLAN,
   assertQuotaFromSnapshot
 } from './usersRepo.js';
+import { deleteAnalysisSideData } from './chatsRepo.js';
 
 export async function persistAnalysis(
   uid: string,
@@ -116,12 +116,10 @@ export async function deleteAnalysisForUser(
     return next;
   });
 
+  await deleteAnalysisSideData(analysisId);
+
   return {
     deleted: true,
     contractsAnalyzed
   };
-}
-
-export function shouldSkipQuota(token?: DecodedIdToken): boolean {
-  return token?.admin === true;
 }

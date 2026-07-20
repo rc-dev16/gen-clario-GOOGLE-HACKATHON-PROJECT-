@@ -3,11 +3,7 @@ import type { Request } from 'express';
 import { HttpError } from '../http/errors.js';
 import { assertJsonObject, requireString } from '../http/request.js';
 import { buildAnalysisPrompt } from '../prompts/analysis.js';
-import {
-  analysisResponseSchema,
-  chatResponseSchema,
-  suggestionResponseSchema
-} from '../prompts/schemas.js';
+import { analysisResponseSchema } from '../prompts/schemas.js';
 import { generateGeminiJson } from '../services/gemini.js';
 import { readUserTextObject } from '../services/gcs.js';
 import { assertWithinQuota } from '../services/usersRepo.js';
@@ -54,25 +50,12 @@ export async function handleAiOrchestrate(
     };
   }
 
-  if (operation === 'chat' || operation === 'negotiationAdvice') {
-    const prompt = requireString(body, 'prompt');
-    return generateGeminiJson<{ response: string }>(prompt, chatResponseSchema(), 2048);
-  }
-
-  if (operation === 'negotiationSuggestions') {
-    const prompt = requireString(body, 'prompt');
-    const result = await generateGeminiJson<{ suggestions: unknown[] }>(
-      prompt,
-      suggestionResponseSchema(),
-      4096
+  if (operation === 'chat' || operation === 'negotiationAdvice' || operation === 'negotiationSuggestions') {
+    throw new HttpError(
+      410,
+      'DEPRECATED_AI_OPERATION',
+      'Use /api/analysis/:id/chat or /api/analysis/:id/negotiation endpoints instead.'
     );
-
-    return {
-      suggestions: result.suggestions.map((suggestion: any) => ({
-        id: typeof suggestion.id === 'string' && suggestion.id ? suggestion.id : `suggestion-${randomUUID()}`,
-        ...suggestion
-      }))
-    };
   }
 
   throw new HttpError(400, 'UNSUPPORTED_AI_OPERATION', 'Unsupported AI orchestration operation.');
