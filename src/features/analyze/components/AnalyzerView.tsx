@@ -7,8 +7,10 @@ import {
   Users,
   Sparkles,
   FileText,
-  Star
+  Star,
+  Loader2
 } from 'lucide-react';
+import type { AnalysisProgressStage } from '@/features/analyze/api/analysisApi';
 
 export interface AnalyzerViewProps {
   userPlan?: string;
@@ -16,9 +18,22 @@ export interface AnalyzerViewProps {
   maxContracts: number;
   uploadedFile: File | null;
   isAnalyzing: boolean;
+  progressStage?: AnalysisProgressStage | null;
   error: string | null;
   onFileUpload: (file: File) => void;
   onRemoveFile: () => void;
+}
+
+const PROGRESS_STEPS: Array<{ id: AnalysisProgressStage; label: string }> = [
+  { id: 'uploading', label: 'Uploading document' },
+  { id: 'queued', label: 'Queued for analysis' },
+  { id: 'processing', label: 'Extracting text & running AI' },
+  { id: 'ready', label: 'Ready' }
+];
+
+function progressIndex(stage: AnalysisProgressStage | null | undefined): number {
+  if (!stage || stage === 'failed') return -1;
+  return PROGRESS_STEPS.findIndex((step) => step.id === stage);
 }
 
 const useContinuousTyping = (
@@ -112,12 +127,14 @@ export function AnalyzerView({
   maxContracts,
   uploadedFile,
   isAnalyzing,
+  progressStage,
   error,
   onFileUpload,
   onRemoveFile
 }: AnalyzerViewProps) {
   const [isVisible, setIsVisible] = useState(false);
   const headingAnimation = useContinuousTyping('Upload Your Legal Contract', 80, 2000);
+  const activeStep = progressIndex(progressStage);
 
   useEffect(() => {
     setIsVisible(true);
@@ -200,6 +217,46 @@ export function AnalyzerView({
                       isAnalyzing={isAnalyzing}
                     />
                   </div>
+
+                  {isAnalyzing && (
+                    <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Analyzing your document…
+                      </div>
+                      <ol className="space-y-2">
+                        {PROGRESS_STEPS.filter((step) => step.id !== 'ready').map((step, index) => {
+                          const done = activeStep > index;
+                          const current = activeStep === index;
+                          return (
+                            <li
+                              key={step.id}
+                              className={`flex items-center gap-2 text-sm ${
+                                current
+                                  ? 'font-semibold text-gray-900'
+                                  : done
+                                    ? 'text-green-700'
+                                    : 'text-gray-400'
+                              }`}
+                            >
+                              <span
+                                className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
+                                  done
+                                    ? 'bg-green-100 text-green-700'
+                                    : current
+                                      ? 'bg-gray-900 text-white'
+                                      : 'bg-gray-200 text-gray-500'
+                                }`}
+                              >
+                                {done ? '✓' : index + 1}
+                              </span>
+                              {step.label}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  )}
 
                   {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl mb-6">

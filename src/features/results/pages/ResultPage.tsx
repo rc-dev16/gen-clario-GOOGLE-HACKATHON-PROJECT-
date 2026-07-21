@@ -63,7 +63,22 @@ const ResultPage: React.FC = () => {
           {errorMessage && (
             <ErrorState title="Error Loading Results" message={errorMessage} />
           )}
-          {result && (
+          {result && (result.status === 'pending' || result.status === 'processing') && (
+            <LoadingState
+              message={
+                result.status === 'pending'
+                  ? 'Your analysis is queued…'
+                  : 'Your analysis is processing…'
+              }
+            />
+          )}
+          {result && result.status === 'failed' && (
+            <ErrorState
+              title="Analysis Failed"
+              message={result.error || 'The analysis job failed. Please try uploading again.'}
+            />
+          )}
+          {result && (!result.status || result.status === 'ready' || result.status === 'completed') && (
             <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden mt-8">
               <AnalysisResults
                 result={result}

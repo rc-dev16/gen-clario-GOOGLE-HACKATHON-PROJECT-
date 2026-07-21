@@ -36,6 +36,7 @@ const AnalyzerPage: React.FC = () => {
       console.error('Analysis failed:', err);
       setError(getAnalysisErrorMessage(err));
       setUploadedFile(null);
+      analyzeMutation.resetProgress();
     }
   };
 
@@ -46,11 +47,13 @@ const AnalyzerPage: React.FC = () => {
       maxContracts={maxContracts}
       uploadedFile={uploadedFile}
       isAnalyzing={analyzeMutation.isPending}
+      progressStage={analyzeMutation.progressStage}
       error={error}
       onFileUpload={handleFileUpload}
       onRemoveFile={() => {
         setUploadedFile(null);
         setError(null);
+        analyzeMutation.resetProgress();
       }}
     />
   );

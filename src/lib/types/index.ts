@@ -77,6 +77,10 @@ export interface AnalysisResult extends AiStructuredAnalysis {
   fileName: string;
   fileSize: string | number;
   gcsTextUri?: string;
+  gcsUri?: string;
+  mimeType?: string;
+  status?: 'pending' | 'processing' | 'ready' | 'failed' | 'completed';
+  error?: string;
 }
 
 export interface UploadedFile extends File {

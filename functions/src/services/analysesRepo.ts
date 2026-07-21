@@ -97,23 +97,34 @@ export async function deleteAnalysisForUser(
       throw new HttpError(403, 'FORBIDDEN', 'You do not have access to this analysis.');
     }
 
+    const status = typeof analysis?.status === 'string' ? analysis.status : 'completed';
     transaction.delete(analysisRef);
 
     if (!userSnapshot.exists) {
       return 0;
     }
 
-    const current = typeof userSnapshot.data()?.contractsAnalyzed === 'number'
-      ? userSnapshot.data()!.contractsAnalyzed
-      : 0;
-    const next = Math.max(0, current - 1);
+    const userData = userSnapshot.data() || {};
+    const current =
+      typeof userData.contractsAnalyzed === 'number' ? userData.contractsAnalyzed : 0;
+    const inFlight =
+      typeof userData.contractsInFlight === 'number' ? userData.contractsInFlight : 0;
 
-    transaction.update(userRef, {
-      contractsAnalyzed: next,
-      updatedAt: now
-    });
+    const updates: Record<string, unknown> = { updatedAt: now };
 
-    return next;
+    if (status === 'pending' || status === 'processing') {
+      updates.contractsInFlight = Math.max(0, inFlight - 1);
+      transaction.update(userRef, updates);
+      return current;
+    }
+
+    // ready | completed | failed (failed already released inFlight)
+    if (status === 'ready' || status === 'completed') {
+      updates.contractsAnalyzed = Math.max(0, current - 1);
+    }
+
+    transaction.update(userRef, updates);
+    return typeof updates.contractsAnalyzed === 'number' ? updates.contractsAnalyzed : current;
   });
 
   await deleteAnalysisSideData(analysisId);

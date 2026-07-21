@@ -26,6 +26,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Job queue is Admin-only (Cloud Functions worker).
+    match /analysisJobs/{jobId} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

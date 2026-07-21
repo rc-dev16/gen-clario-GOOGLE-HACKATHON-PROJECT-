@@ -13,5 +13,12 @@ export function useAnalysis(id: string | undefined) {
       return analysis;
     },
     enabled: Boolean(id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'pending' || status === 'processing') {
+        return 2000;
+      }
+      return false;
+    },
   });
 }

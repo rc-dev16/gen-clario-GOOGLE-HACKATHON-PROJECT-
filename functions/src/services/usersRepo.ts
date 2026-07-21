@@ -7,6 +7,7 @@ export const DEFAULT_PLAN = 'free';
 
 export interface UserQuota {
   contractsAnalyzed: number;
+  contractsInFlight: number;
   maxContracts: number;
   plan: string;
 }
@@ -17,6 +18,7 @@ export async function getUserQuota(uid: string): Promise<UserQuota> {
   if (!snapshot.exists) {
     return {
       contractsAnalyzed: 0,
+      contractsInFlight: 0,
       maxContracts: DEFAULT_MAX_CONTRACTS,
       plan: DEFAULT_PLAN
     };
@@ -25,6 +27,7 @@ export async function getUserQuota(uid: string): Promise<UserQuota> {
   const data = snapshot.data() || {};
   return {
     contractsAnalyzed: typeof data.contractsAnalyzed === 'number' ? data.contractsAnalyzed : 0,
+    contractsInFlight: typeof data.contractsInFlight === 'number' ? data.contractsInFlight : 0,
     maxContracts: typeof data.maxContracts === 'number' ? data.maxContracts : DEFAULT_MAX_CONTRACTS,
     plan: typeof data.plan === 'string' ? data.plan : DEFAULT_PLAN
   };
@@ -41,7 +44,7 @@ export async function assertWithinQuota(uid: string, token?: DecodedIdToken): Pr
 
   const quota = await getUserQuota(uid);
 
-  if (quota.contractsAnalyzed >= quota.maxContracts) {
+  if (quota.contractsAnalyzed + quota.contractsInFlight >= quota.maxContracts) {
     throw new HttpError(
       403,
       'QUOTA_EXCEEDED',
@@ -59,9 +62,10 @@ export function assertQuotaFromSnapshot(
   }
 
   const contractsAnalyzed = typeof data?.contractsAnalyzed === 'number' ? data.contractsAnalyzed : 0;
+  const contractsInFlight = typeof data?.contractsInFlight === 'number' ? data.contractsInFlight : 0;
   const maxContracts = typeof data?.maxContracts === 'number' ? data.maxContracts : DEFAULT_MAX_CONTRACTS;
 
-  if (contractsAnalyzed >= maxContracts) {
+  if (contractsAnalyzed + contractsInFlight >= maxContracts) {
     throw new HttpError(
       403,
       'QUOTA_EXCEEDED',

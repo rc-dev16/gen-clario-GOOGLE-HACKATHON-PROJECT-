@@ -10,6 +10,7 @@ import { handleDocumentProcess } from '../routes/documentProcess.js';
 import { handleAiOrchestrate } from '../routes/aiOrchestrate.js';
 import { handleAnalysisPersist } from '../routes/analysisPersist.js';
 import { handleAnalysisDelete } from '../routes/analysisDelete.js';
+import { handleAnalysesCreate } from '../routes/analysesCreate.js';
 import { handleAnalysisChatPost, handleAnalysisChatSessionsGet, handleAnalysisChatsGet, handleNegotiationChatPost, handleNegotiationStateGet, handleNegotiationSuggestionsPost } from '../routes/analysisChat.js';
 export const api = onRequest({ region: 'us-central1', cors: true }, async (req, res) => {
     writeSecurityHeaders(res);
@@ -30,6 +31,10 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req, 
         const analysisDeleteMatch = apiPath.match(/^\/analysis\/([^/]+)$/);
         if (apiPath === '/storage/upload-url') {
             res.status(200).json(await handleUploadUrl(req, user));
+            return;
+        }
+        if (apiPath === '/analyses' && req.method === 'POST') {
+            res.status(200).json(await handleAnalysesCreate(req, user));
             return;
         }
         if (apiPath === '/documentai/process') {

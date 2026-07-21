@@ -1,8 +1,8 @@
 /**
- * Analysis API — Firestore reads (owner-scoped) and BFF mutations.
+ * Analysis API — Firestore reads (owner-scoped) and async BFF job pipeline.
  */
 
-import { analyzeDocumentWithGemini } from './geminiApi';
+import DocumentAIService from './documentAiApi';
 import { AnalysisResult } from '@/lib/types';
 import {
   getFirestore,
@@ -18,6 +18,14 @@ import { apiFetch, ApiClientError } from '@/lib/apiClient';
 import { validateDocumentFile } from '@/lib/validation/file';
 
 const db = getFirestore(app);
+const documentAIService = new DocumentAIService();
+
+export type AnalysisProgressStage =
+  | 'uploading'
+  | 'queued'
+  | 'processing'
+  | 'ready'
+  | 'failed';
 
 export interface UserQuota {
   contractsAnalyzed: number;
@@ -30,6 +38,9 @@ const DEFAULT_QUOTA: UserQuota = {
   maxContracts: 5,
   plan: 'free'
 };
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 export const getUserQuota = async (userId: string): Promise<UserQuota> => {
   try {
@@ -61,30 +72,82 @@ export const getContractsAnalyzed = async (userId: string): Promise<number> => {
   return quota.contractsAnalyzed;
 };
 
-export const analyzeDocument = async (file: File, userId: string): Promise<AnalysisResult> => {
+export async function createAnalysisJob(input: {
+  gcsUri: string;
+  mimeType: string;
+  fileName: string;
+  fileSize: number;
+}): Promise<{ analysisId: string; jobId: string; status: 'pending' }> {
+  return apiFetch('/api/analyses', {
+    method: 'POST',
+    body: JSON.stringify(input)
+  });
+}
+
+export async function waitForAnalysisReady(
+  analysisId: string,
+  onStage?: (stage: AnalysisProgressStage) => void
+): Promise<AnalysisResult> {
+  const started = Date.now();
+
+  while (Date.now() - started < POLL_TIMEOUT_MS) {
+    const analysis = await getAnalysisById(analysisId);
+
+    if (!analysis) {
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
+    const status = (analysis as AnalysisResult & { status?: string; error?: string }).status;
+
+    if (status === 'processing') {
+      onStage?.('processing');
+    } else if (status === 'pending') {
+      onStage?.('queued');
+    } else if (status === 'ready' || status === 'completed') {
+      onStage?.('ready');
+      return analysis;
+    } else if (status === 'failed') {
+      onStage?.('failed');
+      const errorMessage =
+        typeof (analysis as { error?: string }).error === 'string'
+          ? (analysis as { error: string }).error
+          : 'Analysis failed.';
+      throw new ApiClientError(500, 'ANALYSIS_FAILED', errorMessage);
+    }
+
+    await sleep(POLL_INTERVAL_MS);
+  }
+
+  throw new ApiClientError(
+    504,
+    'ANALYSIS_TIMEOUT',
+    'Analysis is taking longer than expected. Please try again.'
+  );
+}
+
+export const analyzeDocument = async (
+  file: File,
+  _userId: string,
+  onStage?: (stage: AnalysisProgressStage) => void
+): Promise<AnalysisResult> => {
   const validationError = validateDocumentFile(file);
   if (validationError) {
     throw validationError;
   }
 
-  const result = await analyzeDocumentWithGemini(file);
+  onStage?.('uploading');
+  const uploaded = await documentAIService.uploadDocument(file);
 
-  const { analysis: finalResult } = await apiFetch<{ analysis: AnalysisResult }>(
-    '/api/analysis/persist',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        analysis: {
-          ...result,
-          userId,
-          fileName: file.name,
-          fileSize: file.size
-        }
-      })
-    }
-  );
+  onStage?.('queued');
+  const job = await createAnalysisJob({
+    gcsUri: uploaded.gcsUri,
+    mimeType: uploaded.mimeType,
+    fileName: uploaded.fileName,
+    fileSize: uploaded.fileSize
+  });
 
-  return finalResult;
+  return waitForAnalysisReady(job.analysisId, onStage);
 };
 
 export const getUserAnalyses = async (userId: string): Promise<AnalysisResult[]> => {
@@ -98,9 +161,14 @@ export const getUserAnalyses = async (userId: string): Promise<AnalysisResult[]>
       id: snap.id
     })) as AnalysisResult[];
 
-    return results.sort(
-      (a, b) => new Date(b.analysisDate).getTime() - new Date(a.analysisDate).getTime()
-    );
+    return results
+      .filter((item) => {
+        const status = (item as AnalysisResult & { status?: string }).status;
+        return !status || status === 'ready' || status === 'completed';
+      })
+      .sort(
+        (a, b) => new Date(b.analysisDate).getTime() - new Date(a.analysisDate).getTime()
+      );
   } catch (error) {
     console.error('Error fetching user analyses:', error);
     return [];
@@ -137,6 +205,10 @@ export function getAnalysisErrorMessage(error: unknown): string {
   }
 
   return 'Analysis failed. Please try again or contact support.';
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export { validateDocumentFile as validateFile };
