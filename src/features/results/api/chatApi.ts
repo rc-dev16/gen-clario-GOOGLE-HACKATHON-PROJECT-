@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/apiClient';
-import type { NegotiationSuggestion } from '@/features/analyze/api/geminiApi';
+import type { NegotiationSuggestion } from '@/lib/types';
 
 export type ChatKind = 'document' | 'negotiation';
 

@@ -1,7 +1,4 @@
-import {
-  DocumentAIResult,
-  DocumentProcessingError
-} from '@/lib/types/documentai';
+import { DocumentProcessingError } from '@/lib/types/documentai';
 import { apiFetch, ApiClientError } from '@/lib/apiClient';
 
 export interface UploadedObject {
@@ -62,19 +59,6 @@ class DocumentAIService {
         details: error
       } as DocumentProcessingError;
     }
-  }
-
-  /** @deprecated Prefer upload + async /api/analyses job pipeline. */
-  public async analyzeDocument(file: File): Promise<DocumentAIResult> {
-    const uploaded = await this.uploadDocument(file);
-    return apiFetch<DocumentAIResult>('/api/documentai/process', {
-      method: 'POST',
-      body: JSON.stringify({
-        gcsUri: uploaded.gcsUri,
-        mimeType: uploaded.mimeType,
-        fileName: uploaded.fileName
-      })
-    });
   }
 }
 

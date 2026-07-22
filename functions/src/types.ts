@@ -36,5 +36,4 @@ export interface DocumentAIResult {
   }>;
 }
 
-export type AiOperation = 'analyze' | 'chat' | 'negotiationSuggestions' | 'negotiationAdvice';
 export type AnalysisPayload = Record<string, unknown>;

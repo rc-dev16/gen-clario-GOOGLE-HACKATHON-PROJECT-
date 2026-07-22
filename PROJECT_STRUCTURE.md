@@ -1,5 +1,7 @@
 # Project layout
 
+See [SYSDESIGN.md](./SYSDESIGN.md) for the full system design. Folder map:
+
 ```
 /
 ├── src/                  # React SPA (Vite)
@@ -8,22 +10,21 @@
 │   │   └── */{api,hooks,components,pages,context}/
 │   ├── shared/           # layouts, routing, AppHeader, UI states
 │   └── lib/              # firebase, apiClient, types, validation, utils
-├── functions/            # Cloud Functions BFF
+├── functions/            # Cloud Functions BFF + worker
 │   ├── src/              # TypeScript source of truth
-│   │   ├── index.ts      # thin exports (api)
-│   │   ├── init.ts       # firebase-admin init
-│   │   ├── config.ts
-│   │   ├── types.ts
-│   │   ├── http/         # router, errors, headers, request helpers
-│   │   ├── middleware/   # auth, rateLimit
-│   │   ├── routes/       # upload-url, documentai, ai, persist
-│   │   ├── services/     # gcs, documentAi, gemini, analysesRepo
-│   │   └── prompts/      # analysis prompt + response schemas
+│   │   ├── index.ts      # export api + processAnalysisJob
+│   │   ├── http/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── prompts/
+│   │   └── workers/
 │   └── lib/              # tsc output (deploy entry)
-├── scripts/              # ops scripts (CORS, admin helpers)
+├── scripts/              # ops scripts (CORS)
 ├── config/               # local-only GCP credentials (gitignored JSON)
 ├── firestore.rules
 ├── storage.rules
+├── SYSDESIGN.md
 ├── firebase.json
 └── public/
 ```
@@ -38,4 +39,4 @@
 | `@shared/*` | `src/shared/*` |
 | `@lib/*` | `src/lib/*` |
 
-Configured in `vite.config.ts` and `tsconfig.app.json`. Prefer `@/` or the scoped aliases for new imports.
+Configured in `vite.config.ts` and `tsconfig.app.json`.

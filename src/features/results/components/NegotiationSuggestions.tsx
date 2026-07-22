@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnalysisResult } from '@/lib/types';
-import type { NegotiationSuggestion } from '@/features/analyze/api/geminiApi';
+import type { NegotiationSuggestion } from '@/lib/types';
 import {
   generateNegotiationSuggestionsForAnalysis,
   getNegotiationState,

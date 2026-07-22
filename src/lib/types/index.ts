@@ -83,6 +83,15 @@ export interface AnalysisResult extends AiStructuredAnalysis {
   error?: string;
 }
 
+export interface NegotiationSuggestion {
+  id: string;
+  type: 'improvement' | 'risk-mitigation' | 'cost-optimization' | 'clarity';
+  title: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  impact: string;
+}
+
 export interface UploadedFile extends File {
   content?: string;
 }

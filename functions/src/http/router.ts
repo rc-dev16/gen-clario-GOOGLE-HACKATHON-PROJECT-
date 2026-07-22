@@ -7,9 +7,6 @@ import { getApiPath } from './request.js';
 import { authenticate } from '../middleware/auth.js';
 import { enforceRateLimit } from '../middleware/rateLimit.js';
 import { handleUploadUrl } from '../routes/storageUploadUrl.js';
-import { handleDocumentProcess } from '../routes/documentProcess.js';
-import { handleAiOrchestrate } from '../routes/aiOrchestrate.js';
-import { handleAnalysisPersist } from '../routes/analysisPersist.js';
 import { handleAnalysisDelete } from '../routes/analysisDelete.js';
 import { handleAnalysesCreate } from '../routes/analysesCreate.js';
 import {
@@ -52,21 +49,6 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req: 
       return;
     }
 
-    if (apiPath === '/documentai/process') {
-      res.status(200).json(await handleDocumentProcess(req, user));
-      return;
-    }
-
-    if (apiPath === '/ai/orchestrate') {
-      res.status(200).json(await handleAiOrchestrate(req, user));
-      return;
-    }
-
-    if (apiPath === '/analysis/persist') {
-      res.status(200).json(await handleAnalysisPersist(req, user));
-      return;
-    }
-
     if (analysisChatMatch) {
       res.status(200).json(await handleAnalysisChatPost(req, user, analysisChatMatch[1]));
       return;
@@ -97,7 +79,7 @@ export const api = onRequest({ region: 'us-central1', cors: true }, async (req: 
       return;
     }
 
-    if (analysisDeleteMatch && analysisDeleteMatch[1] !== 'persist') {
+    if (analysisDeleteMatch) {
       res.status(200).json(await handleAnalysisDelete(req, user, analysisDeleteMatch[1]));
       return;
     }
