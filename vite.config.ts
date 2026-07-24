@@ -23,10 +23,8 @@ export default defineConfig(({ mode }) => {
   },
   server: {
     port: 3000,
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-    },
+    strictPort: true,
+    // No COOP/COEP here — they break Firebase Google popup auth (auth/popup-closed-by-user).
     proxy: {
       '/api': {
         target: `http://localhost:5001/${projectId}/us-central1/api`,

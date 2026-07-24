@@ -297,20 +297,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => {
               setGoogleError('');
               try {
                 await googleSignIn();
-                // If we get here, popup succeeded
               } catch (err: any) {
                 const errorMessage = err?.message || 'Google sign-in failed.';
                 setGoogleError(errorMessage);
-                
-                // If user completed sign-in in another tab, check auth state after a delay
-                if (errorMessage.includes('another tab') || errorMessage.includes('refresh')) {
-                  setTimeout(() => {
-                    // Check if user is now signed in (auth state change from other tab)
-                    if (user) {
-                      setGoogleError('');
-                    }
-                  }, 3000);
-                }
               }
             }}
             disabled={loading}

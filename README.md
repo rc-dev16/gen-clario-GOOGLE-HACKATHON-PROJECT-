@@ -1,181 +1,141 @@
-# ✨ Clario – AI-Powered Legal Document Assistant
+# Clario
 
-<p align="center">
-  <img src="public/clario-favicon.png" alt="Clario Logo" width="120"/>
-</p>
+AI-powered legal document analyzer. Upload a contract, get structured risk and completeness insights, then chat or explore negotiation suggestions — backed by Document AI, Vertex Gemini, and Firebase.
 
-<p align="center">
-  🔍 Understand contracts like never before. Clario reads your documents, flags risks, and answers your questions — instantly.
-</p>
+**Live demo:** [https://gen-calrio.web.app](https://gen-calrio.web.app)
 
-<p align="center"><a href="https://gen-calrio.web.app/" target="_blank" rel="noopener noreferrer">
-  <strong>🚀 Live Demo</strong>
-</a>
-
-</p>
+Built for the Google Gen AI Exchange Hackathon.
 
 ---
 
-## 🎯 Project Overview
+## Features
 
-Clario is an intelligent legal document analyzer built for the Google Cloud & AI Hackathon. It leverages Google's latest AI technologies to make legal document analysis accessible, efficient, and insightful.
+- **Document upload** — PDF, DOCX, and TXT (max 10 MB)
+- **Async analysis** — signed GCS upload → job queue → OCR + Gemini → progress UX
+- **Structured results** — summary, fields, risk level, completion score, concerning points
+- **Document chat** — ask questions about an analysis (prompts run on the server)
+- **Negotiation helpers** — party-scoped suggestions and advice
+- **Dashboard** — list and open past analyses
+- **Quota** — free-tier limits enforced on the BFF (not UI-only)
 
-### 🌟 Key Problems Solved
-- Time-consuming manual contract review
-- Missing critical contract terms and risks
-- Difficulty in understanding legal jargon
-- Inefficient document management
-- Limited access to legal expertise
+---
 
-## 🧠 Core Features
+## Stack
 
-- 📄 **Smart Document Processing**
-  - Supports PDF and TXT files (DOC/DOCX support coming soon)
-  - Automatic text extraction and formatting
-  - Secure document storage and management
+| Layer | Tech |
+|-------|------|
+| SPA | React, TypeScript, Vite, Tailwind CSS |
+| Auth / data | Firebase Auth, Firestore, Firebase Hosting |
+| BFF / jobs | Cloud Functions (`api`, `processAnalysisJob`, `onAuthUserDeleted`) |
+| Files | Google Cloud Storage (signed URLs) |
+| OCR | Document AI |
+| LLM | Vertex AI Gemini |
 
-- 🔍 **AI-Powered Analysis**
-  - Risk level assessment (High/Medium/Low)
-  - Key terms identification
-  - Critical clause detection
-  - Completion score calculation
+Architecture details: **[SYSDESIGN.md](./SYSDESIGN.md)**.
 
-- 💬 **Interactive Document Chat**
-  - Ask questions about the document
-  - Get explanations of complex terms
-  - Extract specific information
-  - Natural language interaction
+---
 
-- 📊 **Comprehensive Dashboard**
-  - Document overview and statistics
-  - Risk distribution visualization
-  - Quick access to recent analyses
-  - Search and filter capabilities
+## Repository map
 
-## 🛠 Technology Stack
+```
+src/           React SPA (features: auth, landing, analyze, dashboard, results)
+functions/     Cloud Functions BFF + workers (TypeScript in functions/src)
+scripts/       Ops helpers (GCS CORS)
+config/        Local-only GCP credentials directory (gitignored JSON)
+SYSDESIGN.md   Full system design
+```
 
-### Frontend
-- ⚛️ React + TypeScript
-- 🏃‍♂️ Vite for fast builds
-- 🎨 Tailwind CSS for styling
-- 📱 Responsive design
+---
 
-### Google Cloud Services
-- 🤖 Gemini AI for analysis
-- 📝 Document AI for text extraction
-- 🔥 Firebase Suite:
-  - Authentication
-  - Firestore Database
-  - Cloud Storage
-  - Hosting
+## Prerequisites
 
-### Development Tools
-- 📦 Node.js & npm
-- 🧪 Jest for testing
-- 📝 ESLint for code quality
-- 🔄 Git for version control
+- Node.js 20+
+- npm
+- Firebase CLI (`npm i -g firebase-tools`)
+- A Google Cloud / Firebase project with Auth, Firestore, Cloud Functions, Document AI, Vertex AI, and a GCS upload bucket
 
-## 🚀 Getting Started
+---
 
-### Prerequisites
-- Node.js (v18 or higher)
-- npm (v8 or higher)
-- Google Cloud account
-- Firebase project
+## Local setup
 
-### Installation
+### 1. Clone and install
 
-1. Clone the repository
-\`\`\`bash
-git clone https://github.com/yourusername/gen-clario.git
-cd gen-clario
-\`\`\`
-
-2. Install dependencies
-\`\`\`bash
+```bash
+git clone https://github.com/rc-dev16/gen-clario-GOOGLE-HACKATHON-PROJECT-.git
+cd gen-clario-GOOGLE-HACKATHON-PROJECT-
 npm install
-\`\`\`
+npm install --prefix functions
+```
 
-3. Set up environment variables
-Create a .env file in the root directory:
-\`\`\`env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
-CLARIO_UPLOAD_BUCKET=your_gcs_upload_bucket
-DOCUMENT_AI_PROCESSOR_ID=your_processor_id
-GEMINI_LOCATION=us-central1
-\`\`\`
+### 2. Client environment
 
-   **📖 Need help setting up Document AI?** See [DOCUMENT_AI_SETUP.md](./DOCUMENT_AI_SETUP.md) for detailed instructions.
+Copy the example file and fill in your **Firebase web app** config (Firebase Console → Project settings → Your apps):
 
-4. Run the development server
-\`\`\`bash
+```bash
+cp .env.example .env
+```
+
+Only `VITE_FIREBASE_*` variables belong in the root `.env`. The Firebase web API key is public-by-design in client apps; protect data with Auth and Firestore rules (see SYSDESIGN).
+
+### 3. Functions environment
+
+```bash
+cp functions/.env.example functions/.env
+```
+
+Set Document AI processor id/location, upload bucket name, and Gemini model/location. Use placeholders from the example file — do not commit real secrets.
+
+For **local signed URL** creation in the Functions emulator, create gitignored `functions/.env.local` pointing at a local service-account JSON path (see SYSDESIGN §7.7 and §11). Never commit that file or paste private keys into the repo.
+
+### 4. Run
+
+```bash
 npm run dev
-\`\`\`
+```
 
-## 📱 Usage
+- SPA: [http://localhost:3000](http://localhost:3000)
+- Functions emulator: [http://127.0.0.1:5001](http://127.0.0.1:5001)
 
-1. **Sign Up/Login**: Create an account or sign in with Google
-2. **Upload Document**: Click "New Analysis" and upload your legal document
-3. **Review Analysis**: View the AI-generated analysis, risks, and key terms
-4. **Chat**: Use the chat interface to ask questions about your document
-5. **Dashboard**: Track and manage all your analyzed documents
+Or separately: `npm run dev:frontend` / `npm run dev:functions`.
 
-## 🚀 Deployment
+### 5. GCS CORS (once per bucket)
 
-### Quick Setup
+Browser `PUT` uploads need CORS on the upload bucket:
 
-1. **Set up Document AI Processor** (Required)
-   - 📖 **Complete guide**: [DOCUMENT_AI_SETUP.md](./DOCUMENT_AI_SETUP.md)
-   - Create processor in [Google Cloud Console](https://console.cloud.google.com/ai/document-ai/processors)
-   - Set `DOCUMENT_AI_PROCESSOR_ID` in Firebase Functions (Console → Functions → Configuration)
-   - Add `VITE_DOCUMENT_AI_PROCESSOR_ID` to your `.env` file
+```bash
+npm run storage:cors
+```
 
-2. **Deploy to Firebase (hosting + backend functions)**
-   \`\`\`bash
-   npm run deploy
-   \`\`\`
-
-### Important Notes
-
-- **Document AI**: Must be configured before deployment (see setup guide above)
-- **Environment Variables**: Set in Firebase Functions for production
-- **Service Account**: Ensure it has "Document AI API User" role
-
-## 🔒 Security Features
-
-- Secure file handling
-- Firebase Authentication
-- Environment variable protection
-- No raw file storage
-- Secure API endpoints
-
-## 🌟 Future Enhancements
-
-- [ ] Support for DOC/DOCX files
-- [ ] Advanced document comparison
-- [ ] Batch processing
-- [ ] Custom analysis templates
-- [ ] Export functionality
-- [ ] Team collaboration features
-
-## 📄 License
-
-This project is licensed under the MIT License, which means you can:
-- ✅ Use it commercially
-- ✅ Modify it
-- ✅ Distribute it
-- ✅ Use it privately
-
-
+Requires Application Default Credentials that can update the bucket.
 
 ---
 
-<p align="center">
-  Built with ☕️ lots of coffee for Google Gen AI Exchange Hackathon
-</p>
+## Deploy
+
+```bash
+npm run build
+npm run build --prefix functions
+firebase deploy --only hosting,functions,firestore:rules
+```
+
+Notes:
+
+- Ensure `functions/.env` values are set before deploy (Firebase loads them for Functions).
+- Do **not** put local credential file paths in `functions/.env`.
+- Deploying `storage` rules requires Firebase Storage to be enabled; this project may use a plain GCS bucket instead — skip storage rules if that deploy step fails.
+- Runtime service accounts need permission for Document AI, Vertex AI, Firestore, and GCS (including signing / `iam.serviceAccounts.signBlob` as required for V4 URLs).
+
+---
+
+## Security
+
+- Service-account JSON and private keys stay **out of git** (see `.gitignore` and `config/google-cloud/`).
+- Never publish secrets in README, issues, or screenshots of the Network tab (ID tokens are session credentials).
+- If a key was ever committed historically, **rotate it in GCP IAM** even if the current tree is clean.
+- Details: [SYSDESIGN.md](./SYSDESIGN.md) §9.
+
+---
+
+## License
+
+MIT — see [LICENSE](./LICENSE).

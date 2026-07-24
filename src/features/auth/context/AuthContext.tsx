@@ -17,7 +17,8 @@ import { User } from '@/lib/types';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut,
   sendPasswordResetEmail,
@@ -55,6 +56,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Prefer redirect over popup: Google's COOP headers make Firebase's
+    // popup poll of window.closed spam the console even when sign-in succeeds.
+    void getRedirectResult(auth).catch((error) => {
+      console.error('Google redirect sign-in error:', error);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
@@ -167,12 +174,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithRedirect(auth, provider);
     } catch (error) {
-      console.error('Google Sign-in error:', error);
-      throw error;
-    } finally {
+      console.error('Google sign-in error:', error);
       setLoading(false);
+      throw error;
     }
   };
 

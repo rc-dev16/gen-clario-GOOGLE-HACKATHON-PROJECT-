@@ -1,11 +1,29 @@
 import { Storage } from '@google-cloud/storage';
 import { requireUploadBucket } from '../config.js';
+import { loadSigningServiceAccount } from '../config/credentials.js';
 import { HttpError } from '../http/errors.js';
 import type { GcsPointer } from '../types.js';
 
-const storage = new Storage();
+let storage: Storage | null = null;
+
+function createStorage(): Storage {
+  const credentials = loadSigningServiceAccount();
+
+  if (credentials) {
+    return new Storage({
+      credentials,
+      projectId: credentials.project_id
+    });
+  }
+
+  console.warn('[gcs] no signing service account found; signed URLs will fail');
+  return new Storage();
+}
 
 export function getStorage(): Storage {
+  if (!storage) {
+    storage = createStorage();
+  }
   return storage;
 }
 
@@ -46,7 +64,7 @@ export function assertUserOwnedGcsUri(gcsUri: string, uid: string, allowedPrefix
 
 export async function readUserTextObject(textGcsUri: string, uid: string): Promise<string> {
   const pointer = assertUserOwnedGcsUri(textGcsUri, uid, ['texts']);
-  const [buffer] = await storage.bucket(pointer.bucket).file(pointer.object).download();
+  const [buffer] = await getStorage().bucket(pointer.bucket).file(pointer.object).download();
   return buffer.toString('utf8');
 }
 
@@ -56,7 +74,7 @@ export async function writeTextObject(
   sourceGcsUri: string
 ): Promise<string> {
   const bucketName = requireUploadBucket();
-  await storage.bucket(bucketName).file(objectName).save(text, {
+  await getStorage().bucket(bucketName).file(objectName).save(text, {
     resumable: false,
     contentType: 'text/plain; charset=utf-8',
     metadata: {

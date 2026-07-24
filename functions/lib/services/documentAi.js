@@ -1,11 +1,28 @@
 import { DocumentProcessorServiceClient } from '@google-cloud/documentai';
 import { randomUUID } from 'node:crypto';
 import { requireDocumentAiLocation, requireDocumentAiProcessorId, requireProjectId } from '../config.js';
+import { loadSigningServiceAccount } from '../config/credentials.js';
 import { HttpError } from '../http/errors.js';
 import { assertUserOwnedGcsUri, writeTextObject } from './gcs.js';
-const documentAiClient = new DocumentProcessorServiceClient();
+function createDocumentAiClient() {
+    const credentials = loadSigningServiceAccount();
+    if (credentials) {
+        return new DocumentProcessorServiceClient({
+            credentials,
+            projectId: credentials.project_id
+        });
+    }
+    return new DocumentProcessorServiceClient();
+}
+let documentAiClient = null;
+function getDocumentAiClient() {
+    if (!documentAiClient) {
+        documentAiClient = createDocumentAiClient();
+    }
+    return documentAiClient;
+}
 function requireDocumentAiProcessorName() {
-    return documentAiClient.processorPath(requireProjectId(), requireDocumentAiLocation(), requireDocumentAiProcessorId());
+    return getDocumentAiClient().processorPath(requireProjectId(), requireDocumentAiLocation(), requireDocumentAiProcessorId());
 }
 function extractDocumentParagraphs(document) {
     if (!Array.isArray(document.pages)) {
@@ -38,8 +55,10 @@ function extractDocumentTables(document) {
 export async function processDocumentFromGcs(gcsUri, mimeType, uid) {
     assertUserOwnedGcsUri(gcsUri, uid, ['uploads']);
     try {
-        const [processResult] = await documentAiClient.processDocument({
+        const [processResult] = await getDocumentAiClient().processDocument({
             name: requireDocumentAiProcessorName(),
+            // Raises online PDF page limit from 15 → 30 (required for longer contracts).
+            imagelessMode: true,
             gcsDocument: {
                 gcsUri,
                 mimeType
@@ -67,9 +86,20 @@ export async function processDocumentFromGcs(gcsUri, mimeType, uid) {
     }
     catch (error) {
         console.error('[documentai] processing failed', error);
+        if (isPageLimitExceeded(error)) {
+            throw new HttpError(413, 'DOCUMENT_TOO_LONG', 'This document has too many pages for online analysis (max 30). Try a shorter PDF or split it.');
+        }
         if (mimeType === 'application/pdf') {
             throw new HttpError(503, 'OCR_SERVICE_UNAVAILABLE', 'OCR Service Unavailable');
         }
         throw new HttpError(502, 'DOCUMENT_AI_FAILED', 'Document processing failed.');
     }
+}
+function isPageLimitExceeded(error) {
+    if (!error || typeof error !== 'object') {
+        return false;
+    }
+    const record = error;
+    const haystack = `${record.reason || ''} ${record.details || ''} ${record.message || ''}`;
+    return /PAGE_LIMIT_EXCEEDED/i.test(haystack) || /pages .* exceed/i.test(haystack);
 }

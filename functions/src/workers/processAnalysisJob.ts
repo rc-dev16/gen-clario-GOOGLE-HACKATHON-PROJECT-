@@ -1,13 +1,5 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { buildAnalysisPrompt } from '../prompts/analysis.js';
-import { analysisResponseSchema } from '../prompts/schemas.js';
-import { processDocumentFromGcs } from '../services/documentAi.js';
-import { generateGeminiJson } from '../services/gemini.js';
-import {
-  completeAnalysisJob,
-  failAnalysisJob,
-  markJobProcessing
-} from '../services/jobsRepo.js';
+import { runAnalysisJob } from '../services/runAnalysisJob.js';
 
 export const processAnalysisJob = onDocumentCreated(
   {
@@ -40,43 +32,14 @@ export const processAnalysisJob = onDocumentCreated(
       return;
     }
 
-    try {
-      await markJobProcessing(jobId, analysisId);
-
-      const docResult = await processDocumentFromGcs(gcsUri, mimeType, uid);
-      const structured = await generateGeminiJson<Record<string, unknown>>(
-        buildAnalysisPrompt(docResult.text, fileName),
-        analysisResponseSchema()
-      );
-
-      await completeAnalysisJob({
-        jobId,
-        analysisId,
-        uid,
-        gcsTextUri: docResult.textGcsUri,
-        analysisFields: {
-          ...structured,
-          fileName,
-          fileSize: typeof fileSize === 'number' || typeof fileSize === 'string' ? fileSize : '',
-          gcsUri,
-          mimeType
-        }
-      });
-    } catch (error) {
-      console.error(`[processAnalysisJob] failed ${jobId}`, error);
-      const message =
-        error instanceof Error ? error.message : 'Analysis job failed.';
-
-      try {
-        await failAnalysisJob({
-          jobId,
-          analysisId,
-          uid,
-          error: message
-        });
-      } catch (failError) {
-        console.error(`[processAnalysisJob] failed to mark job failed ${jobId}`, failError);
-      }
-    }
+    await runAnalysisJob({
+      jobId,
+      analysisId,
+      uid,
+      gcsUri,
+      mimeType,
+      fileName,
+      fileSize: typeof fileSize === 'number' || typeof fileSize === 'string' ? fileSize : undefined
+    });
   }
 );

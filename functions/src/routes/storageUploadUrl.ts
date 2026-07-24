@@ -44,12 +44,23 @@ export async function handleUploadUrl(
   const safeFilename = sanitizeFilename(filename);
   const objectName = `uploads/${user.uid}/${randomUUID()}-${safeFilename}`;
   const expiresAtMs = Date.now() + SIGNED_URL_TTL_MS;
-  const [uploadUrl] = await getStorage().bucket(bucketName).file(objectName).getSignedUrl({
-    version: 'v4',
-    action: 'write',
-    expires: expiresAtMs,
-    contentType
-  });
+
+  let uploadUrl: string;
+  try {
+    [uploadUrl] = await getStorage().bucket(bucketName).file(objectName).getSignedUrl({
+      version: 'v4',
+      action: 'write',
+      expires: expiresAtMs,
+      contentType
+    });
+  } catch (error) {
+    console.error('[storage] signed URL failed', error);
+    throw new HttpError(
+      500,
+      'SIGNED_URL_FAILED',
+      'Could not create upload URL. For local dev, set GOOGLE_APPLICATION_CREDENTIALS to a service-account JSON with client_email.'
+    );
+  }
 
   return {
     uploadUrl,
